@@ -130,13 +130,13 @@ One object per session, in ascending session number.
 no published figure bounds it. It is exported so a consumer can see it, not
 because a threshold is known — and none is applied.
 
-`start_skew_seconds` is the same kind of figure and is new within version 1.
-Up to one second of it is the signal header's truncation to whole seconds; the
-rest is skew between the two subsystems that stamp these files, which nothing
-published bounds. A bound used to sit here and reject sessions; it had no
-derivation, so it was withdrawn rather than adjusted — see
-[`thresholds.md`](thresholds.md). What still rejects a start resolved against
-the wrong reference midnight is the therapy-day check, which needs no number.
+`start_skew_seconds` is the same kind of figure. Up to one second of it is the
+signal header's truncation to whole seconds; the rest is skew between the two
+subsystems that stamp these files, which nothing published bounds. **Nothing
+is rejected on it**: a bound here would have no derivation, and
+[`thresholds.md`](thresholds.md) says why one is not invented. What does reject
+a start resolved against the wrong reference midnight is the therapy-day
+check, which needs no number.
 
 Each channel:
 
@@ -465,10 +465,8 @@ card yields a year of rows, far more than its day archives hold.
 
 **The eleven categories are positions, not modes.** No ordering has been
 established and no source gives one, so there is deliberately no name field.
-Do not label them. An earlier version of this document said the manufacturer's
-manual lists eleven ventilation modes; that could not be verified in the
-edition this project cites, and a matching count would not establish an
-ordering in any case.
+Do not label them — and note that finding a list of eleven modes elsewhere
+would not establish an ordering either. A matching count is not an ordering.
 
 **The same rows appear in every export taken from one card.** Each archive
 carries its own copy of the source file, so exporting a directory of archives
@@ -536,11 +534,9 @@ report, and for three different reasons:
 - **`target volume`** — bounding it would be a clinical claim, for the reason
   given where the check itself is described below.
 
-`reported` was added within version 1 — a reader must handle status values it
-does not recognise, which is what the compatibility rules below already
-require. `breath rate` previously returned `passed` or `failed` on a
-gross-disagreement factor, and that factor has been withdrawn: see
-[`thresholds.md`](thresholds.md).
+**A reader must handle status values it does not recognise**, which is what
+the compatibility rules below already require: a later version may add one
+without changing the schema version.
 
 `target volume` is the one check holding a **setting** against a
 **measurement**: the delivered volume, over the samples where the `Target

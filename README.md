@@ -216,22 +216,21 @@ does not do: a pressure off by a factor of ten still looks like a pressure.
 > the labels seen for the values seen. Parameters absent from all three have no
 > known conversion.
 
-That distinction used to live in this file alone, so every consumer had to read
-it and hard-code the answer. A parameter with a known factor and one without
-looked identical in the export, which makes inventing a factor the path of
-least resistance. Saying nothing does not prevent a guess; it invites one.
+Published in the export rather than only here, because a parameter with a
+known factor and one without would otherwise look identical in it — which makes
+inventing a factor the path of least resistance. Saying nothing does not
+prevent a guess; it invites one.
 
-Expiratory pressure was counted as confirmed here until this release. It is
-not: the card carries the same raw value in every programme block of every
-archive, so however many readings corroborate it, they corroborate one point.
-It is published as a candidate instead.
+Expiratory pressure is a candidate rather than confirmed, and the reason
+generalises: the card carries the same raw value in every programme block of
+every archive, so however many readings corroborate it, they corroborate **one
+point**. A factor needs two.
 
 **A measured channel and a therapy parameter can share a name, and their
 scales have nothing to do with each other.** `Frequency` is both: a signal
 channel, whose scale the `.wmedf` header states outright, and a setting in
 `parameter.xml`, whose scale nothing states. A channel scale the file declares
-about itself says nothing about how a setting of that name is encoded, and an
-earlier version of this section counted one as evidence for the other.
+about itself says nothing about how a setting of that name is encoded.
 
 **A settable range is not proof of a factor either.** The manual gives ranges
 and step sizes for what a clinician may dial in — see
@@ -241,10 +240,10 @@ the device's front panel and not the encoding in the file behind it.
 
 ### A second file lets the settings decoding be checked independently
 
-`statistic.proto` — a Protocol Buffers payload, previously written off as
-unreadable without a schema — turns out to embed a plain JSON configuration in
-which **every parameter is named**, with therapy parameters given as a
-three-element array, one per program.
+`statistic.proto` is a Protocol Buffers payload, and reading it needs no
+schema: it embeds a plain JSON configuration in which **every parameter is
+named**, with therapy parameters given as a three-element array, one per
+program.
 
 That makes it a genuine cross-check on what this decoder reads out of
 `parameter.xml` and `parametersmap.xml`: two files in different formats, one
@@ -287,14 +286,10 @@ What the reader enforces rather than assumes:
 
 What is deliberately left alone:
 
-- **The eleven categories are not named.** No ordering has been established,
-  and there is no source that gives one. Earlier versions of this README
-  offered two arguments for an ordering; both were withdrawn, one because it
-  could not be verified in the manual edition this project cites, and one
-  because a single correspondence does not establish an ordering for eleven
-  positions. What either argument rested on is not restated here: it came from
-  reading one card, and that is not something to publish in support of a claim
-  that has been dropped.
+- **The eleven categories are not named.** No ordering has been established
+  and no source gives one. A single correspondence would not establish an
+  ordering for eleven positions, and a count that happens to match eleven is
+  not evidence of one either.
 - **Two quantities stay unnamed** — a per-record figure that never exceeds the
   duration, and a second lifetime counter. Nothing else in the data measures
   either independently, so neither is given a meaning.
@@ -566,16 +561,15 @@ publishes, which the file cannot influence. It reports `passed`, `failed`, or
 comparable` is not `passed`.
 
 **Most channels have no bound**, and that is the honest position rather than a
-gap. The manual gives maximum air flow as *above* 220 l/min, which is a
-guaranteed minimum capability and cannot be turned into a ceiling; an earlier
-version of this decoder used it as one, and used it again multiplied by an
-inspiratory time to bound a single breath. Ceilings for breath rate and pulse
-rate rested on assertions about the human body with no cited source. All of
-them have been withdrawn rather than reworded, and
+gap. The manual gives maximum air flow as *above* 220 l/min — a guaranteed
+minimum capability, which cannot be turned into a ceiling, and multiplying it
+by a time gives another lower bound rather than an upper one. A ceiling for
+breath rate or pulse rate would need a cited source and there is none. Bounds
+that rested on either are absent rather than reworded, and
 [`docs/thresholds.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/thresholds.md)
-lists each removal with its reason.
+lists each of them with its reason.
 
-What survives is short and one-sided: a published maximum pressure under fault,
+What is applied is short and one-sided: a published maximum pressure under fault,
 the published settable maxima for the three channels that report settings, and
 0–100 % on channels the file itself declares as percentages. **The bounds are
 deliberately loose.** They are not there to judge a therapy. They are there to
@@ -584,14 +578,13 @@ turns an ordinary breath into something two orders of magnitude larger — and a
 bound tightened until it hugs observed data would start reporting the patient
 instead of the parser.
 
-The first version of this check made exactly that mistake. It read the manual's
-settable target-volume range as a measurement limit and failed sessions whose
-decode was correct. Two consequences are now built in. Each bound records
-whether it came from a settable range, a hardware capability or the arithmetic
-of its own unit, and only channels that report settings may be bounded by a
-settable range. And when a bound fires while being narrower than the range the
-file's own header declares, the report says so — that combination is the
-signature of this mistake, and it points at the bound before the decoder.
+Two safeguards are built in against it. Each bound records whether it came
+from a settable range, a hardware capability or the arithmetic of its own
+unit, and **only channels that report settings may be bounded by a settable
+range** — a limit on what may be dialled in says nothing about what may be
+measured. And when a bound fires while being narrower than the range the
+file's own header declares, the report says so: that combination points at the
+bound before it points at the decoder.
 
 ## Development
 
@@ -711,7 +704,7 @@ a second copy of health data is still on disk at the named path. Nothing tries
 to delete it again.
 
 `--signals` **fails on a channel it cannot resolve** rather than skipping it,
-with exit code `2`. A typo used to produce a successful export missing exactly
+with exit code `2`: skipping would produce a successful export missing exactly
 the channel that was asked for. Naming a channel twice, or once by label and
 once by index, writes one file.
 
@@ -737,10 +730,10 @@ later operation goes through a path string at all.
 A destination is treated as resumable **only** if it carries a manifest this
 tool wrote: a regular, non-symlink file of valid JSON, declaring the expected
 schema version, naming the same source, and stating whether its copy finished.
-An earlier version accepted any non-empty directory containing an entry named
-`copy-manifest.json` without looking at it, which — combined with path-based
-writes — was enough to place health data outside the chosen destination and to
-change permissions on a directory elsewhere.
+Every one of those is checked. Accepting a directory because it contains
+something *named* `copy-manifest.json` would, combined with path-based writes,
+be enough to place health data outside the chosen destination and to change
+permissions on a directory elsewhere.
 
 The destination is created owner-only and **holds personal health data** — keep
 it outside any repository.

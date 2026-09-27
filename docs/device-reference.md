@@ -57,13 +57,13 @@ guarantee about what the device can deliver — a *minimum* capability. It says
 nothing about how large a flow the machine may reach, and a value above it is
 therefore not evidence of anything.
 
-An earlier version of this decoder used it twice as though it were a ceiling:
-a flow bound of ±400 l/min "leaving room above the figure quoted", and a tidal
-volume ceiling of about 15 litres computed as 220 l/min sustained for the
-longest settable inspiratory time of 4 s. Multiplying a lower bound by a time
-gives a lower bound, not an upper one. **Both were withdrawn**, along with the
-channels that borrowed from them. See `WITHDRAWN_BOUNDS` in
-`src/prisma_vent/device_limits.py`, which records each removal and its reason
+Two ways of misusing it are worth naming, because both look reasonable: a flow
+bound set somewhere above the quoted figure "leaving room", and a tidal-volume
+ceiling computed as 220 l/min sustained for the longest settable inspiratory
+time. **Multiplying a lower bound by a time gives a lower bound, not an upper
+one.** Neither is applied here, and no channel borrows from them. See
+`WITHDRAWN_BOUNDS` in
+`src/prisma_vent/device_limits.py`, which records each of them and its reason
 next to the table it was removed from.
 
 ### A specified range is not a limit

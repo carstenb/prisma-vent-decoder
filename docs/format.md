@@ -188,11 +188,10 @@ decimal point implied. **One** has a factor confirmed — inspiratory pressure,
 against two distinct display readings giving one ratio; every other value is
 reported raw.
 
-Expiratory pressure was previously counted as confirmed too. It is not: the
-card carries the **same raw value in every programme block of every archive**,
-so however many readings corroborate it, they corroborate one point, and one
-point cannot establish a factor. It is now published as a candidate instead of
-being claimed.
+Expiratory pressure is a candidate rather than confirmed. The card carries the
+**same raw value in every programme block of every archive**, so however many
+readings corroborate it, they corroborate one point — and one point cannot
+establish a factor, however convincing each corroboration is on its own.
 
 **What is known, and how well, is machine-readable.** The export's `scales` and
 `scale_candidates` say which conversions are confirmed, which rest on a single
@@ -210,9 +209,9 @@ what a value displays as can never show that no other values exist.
 scale.** `Frequency` is both: a `.wmedf` channel, whose header declares its own
 digital-to-physical mapping, and a setting in `parameter.xml`, which declares
 nothing. The two are different quantities from different files, and a channel
-scale is evidence about that channel only. An earlier version of this section
-counted a channel among the confirmed *parameter* factors, which is why it now
-names the parameters it means rather than giving a count.
+scale is evidence about that channel only. Counting a channel among the
+confirmed *parameter* factors is the mistake the shared name invites, which is
+why this section names the parameters it means rather than giving a count.
 
 **A settable range does not establish a factor.** The manual documents the
 ranges and step sizes a clinician may dial in (see `device-reference.md`).
@@ -246,10 +245,8 @@ decoder enforces them.
   Unix epoch time, and it tracks the device's own local clock. It carries no
   zone information — it is local time in epoch clothing.
 - Three is the program slots. **Eleven is not named**, and no source gives an
-  ordering for eleven positions. An earlier version of this file said the
-  manual lists eleven ventilation modes; that could not be verified in the
-  edition this project cites, and it would not have established an ordering
-  even if it had been.
+  ordering for eleven positions. A list of eleven modes found elsewhere would
+  not establish one either: a matching count is not an ordering.
 - The lifetime therapy counter can be checked between consecutive days against
   that day's session durations, since every archive carries its own copy. The
   decoder exposes both figures so a caller can do it; what the check produced

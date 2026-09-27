@@ -49,10 +49,11 @@ of asserting, or it does not exist.
 | structural sum identities | `statistic.py` | yes | the format |
 | resource caps | several | yes | not about decoded values |
 
-Withdrawn thresholds — every one that used to assert and no longer does — are
-listed at the end, each with the reason. `WITHDRAWN_BOUNDS` in
+Numbers that were considered and are **not** applied are listed at the end,
+each with the reason. `WITHDRAWN_BOUNDS` in
 `src/prisma_vent/device_limits.py` carries the same list beside the table it
-was removed from, so a later reader meets the answer where the temptation is.
+would have belonged to, so a later reader meets the answer where the
+temptation is.
 
 ---
 
@@ -64,9 +65,9 @@ Every other check is self-referential and would be satisfied by a header read
 wrongly but consistently.
 
 Every one of them is **one-sided** except the percentages. That is not
-squeamishness: each floor the table used to carry — a sub-atmospheric allowance
-on pressure, a zero floor "because the channel reads zero outside therapy" —
-was a description of one recording rather than a published figure.
+squeamishness: a floor of the kind that suggests itself — a sub-atmospheric
+allowance on pressure, a zero floor "because the channel reads zero outside
+therapy" — describes one recording rather than a published figure.
 
 ### `Airway Pressure` ≤ 60 hPa
 
@@ -308,13 +309,14 @@ Listed for completeness, since they can also make a run fail.
 
 ---
 
-## Withdrawn: numbers that used to assert and no longer do
+## Considered and not applied
 
-Each of these could fail a run. None had a public derivation that survived
-being checked. They were removed rather than reworded, because a private
-threshold under new wording is still a private threshold.
+Each of these could fail a run, and each suggests itself readily enough that
+it is worth saying why it is absent. None has a public derivation that
+survives being checked. None is reworded into something weaker either: a
+private threshold under new wording is still a private threshold.
 
-| Withdrawn | Was | Why it went |
+| Channel or figure | The number it would have been | Why it is not applied |
 |---|---|---|
 | `Patient Flow`, `Patient Flow Dbg`, `Leakage Flow`, `TotalLeakage` | ±400 l/min | Derived from *maximum air flow > 220 l/min* (IFU p. 47), which is a guaranteed **minimum** capability. A lower bound cannot become a ceiling |
 | `Tidal Volume`, `Online Volume` | −1,000 to 15,000 ml | 15 l was 220 l/min × 4 s — the same lower bound multiplied by a time, which is still a lower bound |
