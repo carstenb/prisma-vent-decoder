@@ -93,58 +93,39 @@ any repository, and outside anything that synchronises to a cloud service.
 
 ## Status
 
-**Early, and deliberately narrow.** What it will not do is tell you what any
-of it means clinically, and that is a deliberate limit rather than a gap.
+**Early, and deliberately narrow.** Everything below is implemented and covered
+by tests against fixtures generated at runtime.
 
-What is implemented, and covered by tests against fixtures generated at
-runtime:
+| Area | State |
+|---|---|
+| Time base | signed offsets, noon-to-noon therapy day, the several reference midnights |
+| `.wmedf` headers | parsed, declarations validated rather than assumed |
+| Sample values | raw digital, including the mixed 8-bit/16-bit layout; physical conversion separate |
+| Sample times | derived from record and sample indices, never accumulated |
+| Day archives | sessions paired with event files, events, alarms, settings snapshots split by program |
+| `.tc` trend curves | structure only — header, 9-byte records, a therapy-time estimate. Contents not decoded |
+| `statistic.proto` | full: per-session start and duration for a year, lifetime total, named settings |
+| `copy-card` | verified by size and SHA-256, manifest recorded |
+| Export | versioned and documented — [`docs/export-schema-v1.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/export-schema-v1.md) |
 
-- the device time base — signed offsets, the noon-to-noon therapy day, and the
-  several reference midnights the day-level and session-level files count
-  from;
-- `.wmedf` header parsing, with the format's own declarations validated rather
-  than assumed;
-- decoding of **raw digital sample values**, including the mixed 8-bit and
-  16-bit channel layout;
-- conversion to physical units, and a sample time axis derived exactly from
-  record and sample indices rather than accumulated;
-- reading a day archive — sessions paired with their event files, respiratory
-  and device events, alarms, and settings snapshots split into their therapy
-  programs — with member names and sizes bounded, and provenance recorded;
-- reading `.tc` trend curves as far as their structure is known: a header, a
-  sequence of 9-byte records, and an **estimate** of the day's therapy time
-  from how many of them are populated. The record contents are not decoded and
-  the reader claims nothing about them;
-- reading `statistic.proto`, the device's own long-term record — a start time
-  and a duration for every session of the past year, its lifetime therapy
-  total, and a settings snapshot with parameters **named**. Includes a generic
-  protobuf wire reader that needs no schema;
-- copying a mounted card into a private directory, verifying every file by
-  size and SHA-256 and recording a manifest;
-- exporting an archive in a versioned, documented machine-readable format —
-  see [`docs/export-schema-v1.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/export-schema-v1.md).
-
-What is not implemented:
-
-- any interpretation of what the data *means*. That is not an omission to be
-  filled in later: see the limits below.
+**Not implemented: any interpretation of what the data means.** Not an omission
+to be filled in later — see [Known limits](#known-limits).
 
 Three levels of assurance, kept apart on purpose:
 
-- **Exercised against real data.** The decoder has been run locally and
-  read-only against one prisma VENT50 card and firmware combination. Real
-  device data stays outside this repository and is never committed as a test
-  fixture, and **no figure measured from a recording is published here** — not
-  in the documentation, not in a source comment, not in a test, and not as a
-  threshold. Where a claim below rests on comparing real files, it says so
-  without quoting what the comparison produced.
-- **Automatically tested.** The suite uses synthetic fixtures only, generated
-  at runtime.
-- **Supported.** One device model on one firmware. A successful run over one
-  card is not a claim about other firmware versions, and several format
-  details are known to be firmware-specific.
+| | |
+|---|---|
+| **Exercised against real data** | run locally and read-only against one card and firmware |
+| **Automatically tested** | synthetic fixtures only, generated at runtime |
+| **Supported** | one device model, one firmware. A successful run over one card is not a claim about another |
 
-## What has been established about the format
+Real device data stays outside this repository and is never committed as a
+fixture. **No figure measured from a recording is published here** — not in the
+documentation, not in a source comment, not in a test, not as a threshold.
+Where a claim rests on comparing real files, it says so without quoting what
+the comparison produced.
+
+## What the format holds
 
 Documented with evidence in
 [`docs/format.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/format.md).
@@ -170,7 +151,7 @@ Documented with evidence in
   and a night shifted by a whole day still reads as a perfectly ordinary night,
   just the wrong one.
 
-### Reconstructing a settings history takes two sources, not one
+### Settings history: two sources, neither sufficient
 
 `parameter.xml` records a change in one of two ways, and **a history built
 from either alone is wrong in a way that looks complete**:
@@ -197,7 +178,7 @@ wrote them, with their times. It does **not** assemble the history for you,
 because deciding how to merge two sources of evidence is a decision the caller
 should be making deliberately.
 
-### One parameter has a confirmed scale, and the export says so
+### Parameter scales
 
 `parametersmap.xml` maps parameter ids to names, but nothing in the archive
 states the scale of a value: a pressure appears as an integer with the decimal
@@ -237,7 +218,7 @@ and
 [`docs/device-reference.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/device-reference.md)
 work both through.
 
-### A second file lets the settings decoding be checked independently
+### Cross-check on the settings decoding
 
 `statistic.proto` embeds a plain JSON configuration in which **every parameter
 is named**, where `parameter.xml` is keyed by numeric id. Two files, two
@@ -250,7 +231,7 @@ and neither says where the decimal point goes. **What the comparison produced
 here is not published** — those are somebody's therapy settings, and the method
 is the part that transfers.
 
-### The same file holds a year of history
+### Long-term record
 
 Day archives and trend curves each cover a few weeks. `statistic.proto` carries
 a **rolling year** — a start time and a duration for every session in it. The
@@ -335,54 +316,39 @@ that wants to bin them its own way.
 | History depth | archives and trend curves cover weeks; `statistic.proto` a **rolling year** |
 | Medical interpretation | **not supported** |
 
-Three of these deserve emphasis.
+Three of these carry consequences worth spelling out.
 
 **No event id has been identified.** Events can be counted and placed in time
-but not named — so this tool derives no apnoea index, no leak index, and no
-summary statistic that would require knowing what an event *is*. Guessing that
-an id means "apnoea" because the count looks plausible is precisely the failure
-this project is built to avoid.
+but not named, so this tool derives **no apnoea index, no leak index, and no
+summary that would require knowing what an event is**. Guessing that an id
+means "apnoea" because the count looks plausible is the failure this project is
+built to avoid.
 
-This is worth stating carefully, because it is now easy to believe the opposite.
-**The alarm names are known. The mapping is not.** The manual lists the
-display strings and `statistic.proto` carries eighteen alarm keys with their
-thresholds, so the vocabulary is settled and the thresholds are readable. What
-no source gives is the **join**: those keys address alarm *settings* by name,
-while the ids in `alarm.xml` address *occurrences* by number. Lining them up in
-order is a guess, and a wrong one labels an apnoea as a leak while looking
-entirely reasonable — the keys and the reasoning are in
+The alarm names are known and the mapping is not: the manual lists the display
+strings and `statistic.proto` carries eighteen alarm keys with thresholds, but
+those keys address alarm *settings* by name while `alarm.xml` addresses
+*occurrences* by number, and nothing joins the two id spaces. Two things would
+make a wrong join hard to catch — alarms lag their own cause by up to twenty
+breaths, and one display string can cover several distinct faults. Alarms are
+therefore exported by number; the keys and the reasoning are in
 [`docs/format.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/format.md).
 
-Two things would make such a guess hard to catch even when tested against
-recordings: alarms **lag their own cause** by up to twenty breaths, so an alarm
-appears after whatever triggered it; and one display string can cover several
-distinct faults, so even a correct name would not identify the cause. Until the
-join is established, alarms are exported by number.
+**An all-zero sensor channel is ambiguous, and stays that way.** With no
+oximeter attached, the oximetry channels carry a plain zero rather than a
+distinct marker, so nothing in the data separates "not measured" from "measured
+as nought". The zeros are reported as read. Turning them into missing values
+would be a conclusion dressed as a conversion; a consumer may reasonably *flag*
+such a series as probably unavailable, but calling it a missing sensor needs
+context from outside the file. **No clinical figure may be derived from a
+series whose meaning is unresolved** — the plainest single reason this decoder
+computes none.
 
-**An all-zero sensor channel is ambiguous, and stays that way.** When no
-oximeter is attached, the oximetry channels — oxygen saturation, pulse rate and
-signal quality — carry a plain zero rather than a distinct marker, so nothing
-in the data separates "not measured" from "measured as nought".
+**Daylight saving is not handled.** The clock runs local time, and the therapy
+day runs noon to noon, so a transition falls mid-night: one therapy day an hour
+short, another an hour long, one local hour occurring twice. None of it is
+implemented and none of it is tested.
 
-The decoder therefore reports the zeros as it read them. It does not silently
-turn them into missing values: that would be a conclusion dressed as a
-conversion, and the raw figures are what make a later disagreement traceable.
-A consumer may reasonably *flag* an all-zero series as probably unavailable,
-but calling it a missing sensor is a claim the data cannot support on its own —
-it needs context from outside the file, such as what was connected at the
-time.
-
-Either way, no clinical figure may be derived from a series whose meaning is
-unresolved. This is the plainest single reason why the decoder computes none.
-
-**Daylight saving is not handled.** The device clock runs local time, which was
-confirmed against the device display. Because the therapy day runs noon to
-noon, a transition falls in the middle of a night rather than at a tidy
-boundary, producing one therapy day an hour short and another an hour long,
-and one local hour that occurs twice. None of this is implemented and none of
-it is tested.
-
-## Constraints that come from the device, not from this code
+## Device constraints
 
 Properties of the ventilator, not of this program. No amount of careful
 decoding removes them, and **a consumer that ignores them will produce wrong
@@ -430,7 +396,7 @@ what this decoder does about each is here.
   exist.
 - No runtime dependencies; the standard library is sufficient.
 
-### What `validate` asserts, and what it only reports
+### The five checks, and what each claims
 
 Five checks, and the difference between them is the point of the exercise.
 Each carries its own status, because they are independent and one can be
@@ -452,7 +418,7 @@ decode with surviving a test that was never applied to it.
 with nothing comparable is counted and named rather than folded into a clean
 summary line.
 
-### A check that sets the device against itself
+### Session duration against the device's own record
 
 `validate` compares each session's duration against the entry the device
 banked for it in its long-term record. Sessions lasting under a minute leave no
@@ -478,7 +444,7 @@ that session boundaries are read correctly — a shifted or misattributed time
 base puts the two out of step. **That is weaker than two unrelated subsystems
 agreeing**, and it is worth knowing which of the two you have.
 
-### One check does not trust the file
+### Plausibility: the one external check
 
 Most of what `validate` reports is self-referential. Comparing a sample against
 the range the same header declares catches a misaligned record, but not a
@@ -576,7 +542,7 @@ workflow and, if everything passes, attaches the artefacts it checked to a
 **draft** release whose notes carry their SHA-256. Reviewing those notes and
 publishing stay manual.
 
-### What `decode` guarantees about an existing export
+### `decode`: replacing an existing export
 
 `decode` writes each export into a temporary directory and moves it into place
 only once the manifest is written, so a run that fails leaves nothing behind
@@ -638,7 +604,7 @@ with exit code `2`: skipping would produce a successful export missing exactly
 the channel that was asked for. Naming a channel twice, or once by label and
 once by index, writes one file.
 
-### What `copy-card` guarantees
+### `copy-card` guarantees
 
 `copy-card` never picks a volume for you — the source is always named
 explicitly. It does not descend into the operating system's own directories —
