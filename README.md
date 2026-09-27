@@ -226,84 +226,46 @@ generalises: the card carries the same raw value in every programme block of
 every archive, so however many readings corroborate it, they corroborate **one
 point**. A factor needs two.
 
-**A measured channel and a therapy parameter can share a name, and their
-scales have nothing to do with each other.** `Frequency` is both: a signal
-channel, whose scale the `.wmedf` header states outright, and a setting in
-`parameter.xml`, whose scale nothing states. A channel scale the file declares
-about itself says nothing about how a setting of that name is encoded.
-
-**A settable range is not proof of a factor either.** The manual gives ranges
-and step sizes for what a clinician may dial in — see
-[`docs/device-reference.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/device-reference.md).
-Those can rule some candidates out, which is worth having, but they describe
-the device's front panel and not the encoding in the file behind it.
+**Two things that look like evidence for a factor and are not.** A signal
+channel and a therapy parameter may share a name — `Frequency` is both — and a
+channel's declared scale says nothing about how a setting of that name is
+encoded. A settable range from the manual describes the front panel, not the
+encoding behind it; it can rule candidates out, which is worth having, but it
+cannot single one in.
+[`docs/format.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/format.md)
+and
+[`docs/device-reference.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/device-reference.md)
+work both through.
 
 ### A second file lets the settings decoding be checked independently
 
-`statistic.proto` is a Protocol Buffers payload, and reading it needs no
-schema: it embeds a plain JSON configuration in which **every parameter is
-named**, with therapy parameters given as a three-element array, one per
-program.
+`statistic.proto` embeds a plain JSON configuration in which **every parameter
+is named**, where `parameter.xml` is keyed by numeric id. Two files, two
+formats, the same settings — so they can be compared, and a disagreement would
+point at the block detection, the id-to-name map or the program ordering. The
+decoder exposes both, so anyone with a card can run it on their own data.
 
-That makes it a genuine cross-check on what this decoder reads out of
-`parameter.xml` and `parametersmap.xml`: two files in different formats, one
-keyed by numeric id and one by name, describing the same settings. A
-disagreement would point at the block detection, the id-to-name map or the
-program ordering. The decoder exposes both, so anyone with a card can run the
-comparison on their own data.
+It would not confirm the *scales* in any case: both state the same integers,
+and neither says where the decimal point goes. **What the comparison produced
+here is not published** — those are somebody's therapy settings, and the method
+is the part that transfers.
 
-**What that comparison produced here is not published**, for the same reason
-nothing else measured from a recording is: those are somebody's therapy
-settings. The method is the part that transfers.
+### The same file holds a year of history
 
-It would not confirm the *scales* in any case. Both files state the same
-integers, and neither states where the decimal point goes.
-
-### The same file holds a year of history, and it is now readable
-
-Day archives and trend curves each cover a few weeks. This file carries a
-**rolling year** — a start time and a duration for every session in it. The
-manufacturer documents the device as holding at most fourteen days internally
-([`docs/device-reference.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/device-reference.md)),
+Day archives and trend curves each cover a few weeks. `statistic.proto` carries
+a **rolling year** — a start time and a duration for every session in it. The
+manufacturer documents the device as holding at most fourteen days internally,
 so that is the difference between a few weeks of history and a year of it.
 
+The reader checks what the format guarantees rather than assuming it: one
+record per session with its timestamp matching a session start to the second,
+durations in whole minutes, and every total summing to both of its breakdowns.
+Two quantities, the eleven-way category axis and the per-program histograms are
+**left unnamed and handed back raw**, because nothing establishes what they
+are. [`docs/format.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/format.md)
+describes the layout and says what each of those is and is not.
+
 Read it with `prisma-vent inspect`, or `DayArchive.statistic()` from the API.
-
-What the reader enforces rather than assumes:
-
-- **One record per session**, its timestamp matching an archive session's start
-  exactly, to the second.
-- **Session duration in whole minutes, truncated.** Because the device
-  truncates, a session's own span and the figure banked for it differ by
-  somewhere in `[0, 1)` minutes — which is arithmetic about the storage, not a
-  measurement of anything.
-- **Every total is broken down by program slot and by an eleven-way category,
-  and both breakdowns must sum to it.** A partition sums to what it partitions;
-  the reader raises where it does not.
-- **Lifetime therapy time.** Every archive carries its own copy of this file,
-  so a card gives one reading per day, and consecutive readings can be checked
-  against that day's session durations. The reader exposes both figures.
-
-What is deliberately left alone:
-
-- **The eleven categories are not named.** No ordering has been established
-  and no source gives one. A single correspondence would not establish an
-  ordering for eleven positions, and a count that happens to match eleven is
-  not evidence of one either.
-- **Two quantities stay unnamed** — a per-record figure that never exceeds the
-  duration, and a second lifetime counter. Nothing else in the data measures
-  either independently, so neither is given a meaning.
-- **The per-program histogram blocks are handed back raw.** 553 numbers per
-  program per session, plainly distributions of something unidentified.
-
-The timestamps looked like they would settle whether the device clock is UTC or
-local, being absolute. They do not: they run exactly twelve hours behind Unix
-time and track the device's own clock, so they are a local-time counter in
-epoch clothing and carry no zone information at all.
-
-Also in the file: probably the firmware version, and the circuit type
-(`HoseType`, `ExhalationSystem`) that the manual says must be known before
-volumes mean anything.
 
 `prisma-vent usage` reports it directly:
 
@@ -382,37 +344,20 @@ an id means "apnoea" because the count looks plausible is precisely the failure
 this project is built to avoid.
 
 This is worth stating carefully, because it is now easy to believe the opposite.
-**The alarm names are known. The mapping is not.** Two sources give a catalogue:
-the manufacturer's manual lists the display strings, and `statistic.proto`
-carries eighteen alarm keys as configuration —
+**The alarm names are known. The mapping is not.** The manual lists the
+display strings and `statistic.proto` carries eighteen alarm keys with their
+thresholds, so the vocabulary is settled and the thresholds are readable. What
+no source gives is the **join**: those keys address alarm *settings* by name,
+while the ids in `alarm.xml` address *occurrences* by number. Lining them up in
+order is a guess, and a wrong one labels an apnoea as a leak while looking
+entirely reasonable — the keys and the reasoning are in
+[`docs/format.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/format.md).
 
-> `AlarmApnoe`, `AlarmArpLimit`, `AlarmFrequencyHigh`, `AlarmFrequencyLow`,
-> `AlarmLeakageHigh`, `AlarmMinuteVolumeHigh`, `AlarmMinuteVolumeLow`,
-> `AlarmPressureHigh`, `AlarmPressureLow`, `AlarmPulseHigh`, `AlarmPulseLow`,
-> `AlarmSpO2High`, `AlarmSpO2Low`, `AlarmSystemInactivation`,
-> `AlarmVolumeHigh`, `AlarmVolumeLow`, `AlarmVolumeLowMPVv`, and
-> `AlarmVentilationSwitchedOff`
-
-— each with a configured threshold per program. So the *vocabulary* is settled
-and the *thresholds* are readable.
-
-What no source gives is the join. Those keys are alarm **settings**, addressed
-by name. The ids in `alarm.xml` are alarm **occurrences**, addressed by number,
-and nothing found so far connects the two id spaces. Having eighteen names and
-a list of numeric ids invites lining them up in order; that is a guess, and a
-wrong one labels an apnoea as a leak while looking entirely reasonable.
-
-Two further reasons an id-to-name guess would be hard to catch even if
-tested against the recordings: **alarms lag their own cause** — physiological
-alarms fire three breaths after the limit is reached, ten for rebreathing, at
-most twenty for the ARP limit, and three seconds for the pulse and SpO₂ alarms
-(cited with its page in
-[`docs/device-reference.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/device-reference.md))
-— so an alarm appears *after* whatever triggered it and correlation against the
-traces must allow for that. And a single display string can cover several
-distinct faults, so even a correct name would not identify the cause.
-
-Until the join is established, alarms are exported by number.
+Two things would make such a guess hard to catch even when tested against
+recordings: alarms **lag their own cause** by up to twenty breaths, so an alarm
+appears after whatever triggered it; and one display string can cover several
+distinct faults, so even a correct name would not identify the cause. Until the
+join is established, alarms are exported by number.
 
 **An all-zero sensor channel is ambiguous, and stays that way.** When no
 oximeter is attached, the oximetry channels — oxygen saturation, pulse rate and
@@ -439,44 +384,30 @@ it is tested.
 
 ## Constraints that come from the device, not from this code
 
-These are properties of the ventilator, taken from the manufacturer's patient
-instructions for use and cited with edition, section and page in
-[`docs/device-reference.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/device-reference.md).
-No amount of careful decoding removes them, and a consumer that ignores them
-will produce wrong numbers from a correct decode.
+Properties of the ventilator, not of this program. No amount of careful
+decoding removes them, and **a consumer that ignores them will produce wrong
+numbers from a correct decode.** Each is cited with edition, section and page
+in
+[`docs/device-reference.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/device-reference.md);
+what this decoder does about each is here.
 
-**Two unit systems coexist in one file.** Patient flow, target volume, breath
-volume and minute volume are stated in **BTPS**; every other flow and volume is
-**STPD**. Comparing one against the other — a leak flow against a tidal volume,
-say — produces a consistent few-percent error that looks like noise rather than
-like a mistake. This decoder reports units as the file declares them and does
-not convert between the systems.
-
-**The traces may already be filtered.** The manual states that *displayed*
-pressure, flow and leakage are low-pass filtered. Whether the values written to
-the card are the displayed ones or raw sensor output is not stated anywhere, so
-calling them raw sensor data is an assumption. Treat them as possibly smoothed.
-
-**The clock has no time source.** The device carries a "clock not set" alarm
-whose stated remedy is having the clock set by a dealer so that the course of
-therapy is recorded correctly. Nothing synchronises it, so it drifts.
-Timestamps are therefore reported as device-local and never converted; a
-correction belongs alongside them, not applied to them.
-
-**Only fourteen days are held internally.** When a fresh card is inserted the
-device writes out its buffer, which is why a new card arrives already carrying
-history. But therapy days older than that window are not on the device at all —
-they exist only on the previous card or in the manufacturer's cloud. Missing
-early days are usually not a decoding problem.
-
-**The circuit type changes what the numbers mean.** Leakage circuit and a
-single circuit with a valve differ in their pressure floor and in how
-leak-derived values behave. The type is recorded in the data, and volumes
-should not be interpreted without it.
-
-**Sessions may end with a low-pressure tail.** After the soft-stop ramp expires
-the device keeps running at a low pressure until it is put into standby. Those
-minutes are not a therapy setting and should not be read as one.
+- **Two unit systems coexist in one file** — some flows and volumes in BTPS,
+  the rest in STPD. Comparing across them gives a consistent few-percent error
+  that reads as noise. Units are reported as the file declares them and
+  **nothing is converted between the systems**.
+- **The traces may already be filtered.** Displayed pressure, flow and leakage
+  are low-pass filtered; whether the card holds the displayed values or raw
+  sensor output is not stated anywhere. Treat them as possibly smoothed.
+- **The clock has no time source** and drifts. Timestamps are reported as
+  device-local and **never converted**; a correction belongs alongside them,
+  not applied to them.
+- **Only fourteen days are held internally**, so a fresh card arrives already
+  carrying history and older therapy days are not on the device at all.
+  Missing early days are usually not a decoding problem.
+- **The circuit type changes what the numbers mean.** It is recorded in the
+  data, and volumes should not be interpreted without it.
+- **Sessions may end with a low-pressure tail** after the soft-stop ramp.
+  Those minutes are not a therapy setting.
 
 ## Design
 
@@ -673,21 +604,20 @@ every directory must be one the declared paths imply. A subset check would not
 do — a manifest could declare a path it never wrote, and a file later dropped
 there would then pass as the exporter's own.
 
-Declared paths must be safe and canonical: relative, POSIX, non-empty, no
-`.` or `..` segment, no backslash, no trailing slash, no duplicates, and
-`manifest.json` must list itself. The exporter writes the list sorted, but
-order is not part of the contract — validation compares sets.
+Declared paths must be safe and canonical, and `manifest.json` must list
+itself; the exact rules are in
+[`docs/export-schema-v1.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/export-schema-v1.md).
 
 So **anything found beside an export stops the replacement** — a note, a
 spreadsheet, an unfamiliar subdirectory, even an empty one. Replacing it would
 delete those, so the directory is left exactly as it is and the message names
 the paths, never their contents.
 
-An export written before that list existed falls back to a strict allowlist of
-the required files, `usage.jsonl` and `session_NNNN/signal_NN_*.csv`. That
-fallback cannot tell a hand-made file matching those names from one this tool
-wrote, which is why the declared list is the better route. **Only a missing
-`files` field takes the fallback**; a malformed one is refused outright.
+A manifest **lacking** the list falls back to a strict allowlist of the
+required files, `usage.jsonl` and `session_NNNN/signal_NN_*.csv`. That fallback
+cannot tell a hand-made file matching those names from one this tool wrote,
+which is why the declared list is the better route. **Only a missing `files`
+field takes the fallback**; a malformed one is refused outright.
 
 The permissive reading was rejected deliberately. Archive filenames repeat
 across cards — the day counter runs with the device, not the card — so

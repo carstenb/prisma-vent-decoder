@@ -93,8 +93,8 @@ from; a consumer must handle their absence rather than assume a checkout.
 and sorted, including `manifest.json` itself. It exists so a later run can tell
 this export's own files from anything put beside them afterwards — a note, a
 spreadsheet, a subdirectory — and refuse to replace a directory holding such
-things rather than delete them. **A reader may ignore it**; it is an addition
-within version 1, and exports written before it exists simply lack the field.
+things rather than delete them. **A reader may ignore it**, and must tolerate a
+manifest that lacks it: the field is optional in version 1.
 
 Every entry is a safe canonical relative POSIX path — non-empty, no leading
 slash, no `.` or `..` segment, no backslash, no trailing slash — and no path

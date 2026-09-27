@@ -161,10 +161,22 @@ ordered**; sort on read.
 
 **No event or alarm id has been identified.** The names are known — the
 manufacturer's manual lists the display strings, and `statistic.proto` carries
-alarm keys as configuration — but nothing joins those names to the numeric ids,
-which live in a different id space. Events can be counted and placed in time.
-They must not be named, and no index that depends on knowing what an event *is*
-may be derived from them.
+eighteen alarm keys as configuration, each with a threshold per program:
+
+> `AlarmApnoe`, `AlarmArpLimit`, `AlarmFrequencyHigh`, `AlarmFrequencyLow`,
+> `AlarmLeakageHigh`, `AlarmMinuteVolumeHigh`, `AlarmMinuteVolumeLow`,
+> `AlarmPressureHigh`, `AlarmPressureLow`, `AlarmPulseHigh`, `AlarmPulseLow`,
+> `AlarmSpO2High`, `AlarmSpO2Low`, `AlarmSystemInactivation`,
+> `AlarmVolumeHigh`, `AlarmVolumeLow`, `AlarmVolumeLowMPVv`, and
+> `AlarmVentilationSwitchedOff`
+
+Nothing joins those names to the numeric ids, which live in a different id
+space: the keys address alarm **settings**, the ids in `alarm.xml` address
+**occurrences**. Eighteen names beside a list of ids invites lining them up in
+order, and a wrong join labels an apnoea as a leak while looking entirely
+reasonable. Events can be counted and placed in time. They must not be named,
+and no index that depends on knowing what an event *is* may be derived from
+them.
 
 ### Parameters
 
