@@ -1,0 +1,111 @@
+name: Bug report
+description: Something decoded wrongly, crashed, or does not do what the README says
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Before anything else: do not attach device files
+
+        **No `.zip`, `.wmedf`, `.tc`, `.proto` or device XML.** No screenshots
+        showing recordings or a serial number. No paths containing your name.
+
+        Those files are your medical record and your device's serial number,
+        and this is a public repository — an attachment cannot be taken back
+        once posted, even if the comment is deleted.
+
+        **The one thing worth sending is a synthetic reproduction.** The
+        fixture builder in `tests/synthetic.py` writes byte-exact files from
+        invented data, so a failing case built with it carries no health data
+        at all.
+
+        **No output of this program is offered as safe to paste** — not
+        `prisma-vent inspect`, which names the archive, reports session counts
+        and durations and can print statistics measured from your recording,
+        and not anything else. Describe the problem in words instead.
+
+        **If the bug is that a number is wrong but looks plausible**, please
+        report it privately instead: the **Security** tab, then *Report a
+        vulnerability*. `SECURITY.md` in this repository explains why. A
+        believable wrong value is the most serious defect this project can
+        have, because someone may take it to a clinical appointment.
+
+  - type: checkboxes
+    id: no-data
+    attributes:
+      label: Data check
+      options:
+        - label: I have not attached any device file, and no screenshot or output showing recorded values, dates, durations, counts or a serial number.
+          required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: >
+        What you did, what you expected, and what you got instead. Describe the
+        shape of the problem rather than quoting your own figures — "the airway
+        pressure channel decodes about ten times too small" says as much as a
+        pair of numbers and publishes nothing.
+      placeholder: |
+        Ran `prisma-vent inspect` on a day archive.
+        Expected the airway pressure channel to peak near what the device
+        displays. It reports roughly a tenth of that.
+    validations:
+      required: true
+
+  - type: textarea
+    id: message
+    attributes:
+      label: Error message
+      description: >
+        Paste the message, not the data. Read it through first and replace
+        anything identifying — a serial, a full path, a date you would rather
+        not publish — with a placeholder.
+      render: text
+
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+      description: Output of `prisma-vent --version`.
+      placeholder: prisma-vent 0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version and operating system
+      placeholder: Python 3.13, macOS 15
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device model and firmware
+      description: >
+        The model is on the device. The firmware version is on its status
+        screen.
+      placeholder: prisma VENT50, firmware 6.3.0
+
+  - type: textarea
+    id: synthetic
+    attributes:
+      label: Synthetic reproduction
+      description: >
+        The single most useful thing you can send. The fixture builder in
+        `tests/synthetic.py` writes byte-exact files from invented data, so a
+        failing case built with it carries no health data at all. If you can
+        express the problem that way, paste the code here.
+      render: python
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        If the defect genuinely cannot be reproduced without a real recording,
+        say so here rather than attaching one. It will be worked out with you —
+        usually by asking you to run a command locally and report what it
+        printed.

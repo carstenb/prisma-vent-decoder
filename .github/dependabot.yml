@@ -1,0 +1,25 @@
+# Narrow on purpose.
+#
+# **Only GitHub Actions.** This package has no runtime dependencies at all, so
+# nothing it ships can carry a vulnerability to anyone who installs it. pytest
+# and setuptools are development and build tools; a defect in either reaches no
+# user of the decoder, and updating them here would produce a stream of pull
+# requests that mean nothing — which is how people learn to stop reading
+# dependency alerts.
+#
+# The actions are different: they run in CI with access to this repository, and
+# they are the one place where a stale or altered dependency has real
+# consequences. They are pinned to full commit SHAs rather than to tags,
+# because a tag can be moved to point at different code and a SHA cannot.
+# Dependabot keeps those SHAs current and writes the human-readable version
+# beside each one.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"
+    labels:
+      - dependencies

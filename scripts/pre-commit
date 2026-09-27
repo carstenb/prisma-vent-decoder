@@ -1,0 +1,529 @@
+#!/usr/bin/env python3
+"""prisma-vent-decoder privacy guard.
+
+Refuses to let anything that looks like real device data into the repository.
+It inspects file *content*, not just names, because renaming a file defeats an
+extension check.
+
+Three modes, one implementation, so the barrier at commit time, the barrier in
+CI and the audit before publication cannot drift apart:
+
+    scripts/pre-commit              the staged changes  (git hook, the default)
+    scripts/pre-commit --all        every tracked file  (CI, and audits)
+    scripts/pre-commit --history    every blob reachable from every ref
+
+``--history`` is the one that answers the question the other two cannot: a
+recording committed as ``payload.bin`` and deleted again before HEAD is absent
+from the working tree and invisible to a scan of tracked *names*, but it is
+still in the object store and still reachable, and publishing the repository
+publishes it. This mode enumerates unique blobs and reads their bytes.
+
+THIS IS AN ADDITIONAL BARRIER, NOT A GUARANTEE. It is not a complete
+data-loss-prevention scanner. Do not rely on it as the only thing standing
+between a recording and a public repository.
+
+Install as a hook:
+    ln -s ../../scripts/pre-commit .git/hooks/pre-commit
+
+Why this is Python and not shell
+--------------------------------
+
+The previous implementation converted git's NUL-separated path list to
+newline-separated text with ``tr '\\0' '\\n'``. A newline is a legal character
+in a git path, so a single file named ``evil<newline>name.bin`` became two
+paths, neither of which existed — and the guard scanned nothing and reported
+success. That was reproduced with a staged file beginning with ZIP magic.
+
+Portable POSIX shell has no reliable way to carry NUL-delimited paths through
+a ``while read`` loop, so the guard was rewritten rather than patched. Paths
+are handled as **bytes** from git to the filesystem here: they are split on
+NUL, never on a newline, and are decoded only to be printed.
+
+This file is committed, so it deliberately contains NO real serial number. It
+matches generic patterns instead. To add machine-specific patterns, create
+
+    .git/decoder-secret-patterns
+
+with one **Python regular expression** per line; blank lines and lines
+beginning with ``#`` are ignored. That path is inside .git/ and is therefore
+never committed. **Its contents are never printed** — a match reports only
+that one occurred, because naming what matched would publish the thing the
+file exists to keep out.
+
+A pattern that fails to compile stops the guard rather than being skipped: a
+pattern that never matches because it is malformed is a check that silently
+does not run.
+
+Keep those patterns high-confidence. One that also matches this repository's
+own invented examples — an archive-filename shape, say — makes the guard fire
+on its own documentation, and a gate that fires on its own test data is one
+people learn to ignore. That is the same reason the committed patterns below
+exclude the WM article number and the reserved all-zero serial.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import subprocess
+import sys
+from dataclasses import dataclass
+
+#: 1 MiB. A larger new binary has to be justified rather than waved through.
+MAX_BINARY_BYTES = 1024 * 1024
+
+#: Content is read in full only below this. Anything larger has already been
+#: caught by the large-binary check if it is binary at all, and reading a huge
+#: text file in full to grep it is not worth the memory.
+MAX_SCAN_BYTES = 16 * 1024 * 1024
+
+#: This script necessarily contains the identifying patterns as literals and
+#: would otherwise always match itself.
+SELF = b"scripts/pre-commit"
+
+#: An EDF header carries a version field of ASCII digits and spaces, and a
+#: dd.mm.yy start date at offset 168.
+_EDF_DATE = re.compile(rb"^[0-9]{2}\.[0-9]{2}\.[0-9]{2}$")
+_EDF_VERSION = re.compile(rb"^[0-9] *$")
+
+#: Structures that appear in the device's own XML. Only applied to actual XML:
+#: prose that merely *mentions* these element names — notes, this repository's
+#: documentation — is legitimate and must not be blocked.
+_DEVICE_XML = re.compile(
+    rb"<Device_sn>|<Device_settings>|<Mainboard_sn>|prismaVENT"
+    rb"|<parameters +version|<RespEvent"
+)
+
+#: Only the serial. Deliberately NOT the WM article number: that identifies the
+#: device *model*, is identical on every unit, and appears legitimately
+#: throughout this repository's documentation. Flagging it would train the
+#: reader to ignore this guard.
+#:
+#: An all-zero serial is reserved for synthetic fixtures, which need a
+#: serial-shaped path to exercise the card layout at all. The exception is
+#: deliberately as narrow as it can be: one value, no digits, no ranges.
+_SERIAL = re.compile(rb"\bSN[0-9]{6,}\b")
+_RESERVED_SERIAL = re.compile(rb"^SN0+$")
+
+_ZIP_MAGIC = b"PK\x03\x04"
+
+
+@dataclass(frozen=True)
+class Violation:
+    """One finding: where it is, and what was wrong with it."""
+
+    where: str
+    why: str
+
+
+def _show(path: bytes) -> str:
+    """A path as a person should read it, with unprintable bytes escaped.
+
+    Paths are handled as bytes everywhere else. This is the only place they
+    are decoded, and it is for a message rather than for a filesystem call —
+    which is the whole point of the rewrite.
+    """
+    return os.fsdecode(path).encode("unicode_escape").decode("ascii")
+
+
+def _git(*args: str, cwd: str | None = None) -> bytes:
+    """Run git and return its raw stdout, refusing to guess on failure."""
+    result = subprocess.run(
+        ["git", *args], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd
+    )
+    if result.returncode != 0:
+        message = result.stderr.decode("utf-8", "replace").strip()
+        raise SystemExit(f"privacy guard: git {' '.join(args)} failed: {message}")
+    return result.stdout
+
+
+def _split_nul(data: bytes) -> list[bytes]:
+    """Split git's ``-z`` output. On NUL, and on nothing else, ever."""
+    return [item for item in data.split(b"\0") if item]
+
+
+# --------------------------------------------------------------------------
+# the checks themselves
+# --------------------------------------------------------------------------
+
+
+def check_path(path: bytes) -> str | None:
+    """Checks that need only the path. Nothing under data/ may ever be tracked."""
+    parts = path.split(b"/")
+    if parts and parts[0] == b"data" or b"data" in parts[:-1]:
+        return "lives under data/, which holds real health data"
+    return None
+
+
+def check_content(path: bytes, size: int, head: bytes, body: bytes | None) -> str | None:
+    """Checks that read the bytes.
+
+    *head* is the first 8 KiB, always present. *body* is the whole content when
+    it was small enough to read, and ``None`` when it was not — every check
+    that needs it says so rather than quietly passing.
+    """
+    # --- ZIP magic --------------------------------------------------------
+    # Device archives are ZIPs. Wheels are too, but wheels live in dist/ and
+    # are git-ignored, so nothing legitimate reaches this check.
+    if head.startswith(_ZIP_MAGIC):
+        return "starts with ZIP magic — device archives are ZIP files"
+
+    # --- EDF / .wmedf heuristic -------------------------------------------
+    if size > 256 and len(head) >= 176:
+        if _EDF_DATE.match(head[168:176]) and _EDF_VERSION.match(head[0:8]):
+            return "looks like an EDF/.wmedf signal file"
+
+    # --- Protocol Buffers payload -----------------------------------------
+    # The device's statistic.proto is a serialised payload. A real .proto
+    # *schema* is text beginning with a syntax or package line, and is small.
+    if path.endswith(b".proto") and size > 4096:
+        return (
+            "is a large .proto — device statistics are serialised payloads, "
+            "not schemas"
+        )
+
+    # --- Large new binary --------------------------------------------------
+    if size > MAX_BINARY_BYTES and b"\0" in head:
+        return f"large binary file ({size} bytes) — justify it or keep it out of git"
+
+    if body is None:
+        return (
+            f"is {size} bytes, too large for this guard to read in full. "
+            "Justify it or keep it out of git"
+        )
+
+    # --- Device-specific XML ----------------------------------------------
+    is_xml = path.lower().endswith(b".xml") or head.startswith(b"<?xml")
+    if is_xml and _DEVICE_XML.search(body):
+        return "contains device-specific XML structures"
+
+    # --- Identifying patterns, generic ------------------------------------
+    if path != SELF:
+        for match in _SERIAL.finditer(body):
+            if not _RESERVED_SERIAL.match(match.group()):
+                return "contains a serial-shaped identifier"
+    return None
+
+
+def check_local_patterns(
+    path: bytes, body: bytes | None, patterns: list[re.Pattern[bytes]]
+) -> str | None:
+    """Match against the uncommitted machine-specific pattern list.
+
+    The message never quotes what matched. The whole reason those patterns live
+    outside the repository is that naming them here would publish them.
+    """
+    if body is None or path == SELF:
+        return None
+    for pattern in patterns:
+        if pattern.search(body):
+            return "matches a locally configured sensitive pattern"
+    return None
+
+
+def load_local_patterns(git_dir: str) -> list[re.Pattern[bytes]]:
+    path = os.path.join(git_dir, "decoder-secret-patterns")
+    if not os.path.isfile(path):
+        return []
+    patterns: list[re.Pattern[bytes]] = []
+    with open(path, "rb") as handle:
+        for number, raw in enumerate(handle, start=1):
+            line = raw.strip()
+            if not line or line.startswith(b"#"):
+                continue
+            try:
+                patterns.append(re.compile(line))
+            except re.error as exc:
+                raise SystemExit(
+                    f"privacy guard: {path} line {number} is not a valid regex: {exc}"
+                )
+    return patterns
+
+
+# --------------------------------------------------------------------------
+# the three modes
+# --------------------------------------------------------------------------
+
+
+def _read_staged(path: bytes) -> tuple[int, bytes, bytes | None]:
+    spec = b":" + path
+    size_out = subprocess.run(
+        ["git", "cat-file", "-s", os.fsdecode(spec)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
+    if size_out.returncode != 0:
+        return 0, b"", b""
+    size = int(size_out.stdout.strip() or 0)
+    blob = subprocess.run(
+        ["git", "cat-file", "blob", os.fsdecode(spec)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    ).stdout
+    body = blob if size <= MAX_SCAN_BYTES else None
+    return size, blob[:8192], body
+
+
+def _read_worktree(path: bytes) -> tuple[int, bytes, bytes | None] | None:
+    try:
+        size = os.stat(path).st_size
+    except OSError:
+        return None
+    try:
+        with open(path, "rb") as handle:
+            head = handle.read(8192)
+            if size <= MAX_SCAN_BYTES:
+                return size, head, head + handle.read()
+            return size, head, None
+    except OSError:
+        return None
+
+
+def scan_paths(paths: list[bytes], mode: str, patterns) -> tuple[int, list[Violation]]:
+    violations: list[Violation] = []
+    scanned = 0
+    for path in paths:
+        reason = check_path(path)
+        if reason is not None:
+            violations.append(Violation(_show(path), reason))
+            continue
+
+        if mode == "staged":
+            read = _read_staged(path)
+        else:
+            read = _read_worktree(path)
+            if read is None:
+                # Tracked but not in the working tree: nothing to scan here,
+                # and --history is the mode that covers what is only in the
+                # object store.
+                continue
+        scanned += 1
+        size, head, body = read
+
+        reason = check_content(path, size, head, body)
+        if reason is None:
+            reason = check_local_patterns(path, body, patterns)
+        if reason is not None:
+            violations.append(Violation(_show(path), reason))
+    return scanned, violations
+
+
+_OID = re.compile(rb"^[0-9a-f]{40}([0-9a-f]{24})?$")
+
+
+@dataclass(frozen=True)
+class Inventory:
+    """What the object store holds, so an audit can state it rather than hope."""
+
+    objects: int
+    blobs: int
+    reachable_blobs: int
+    unreachable_blobs: int
+    scanned: int
+
+
+def _reachable_object_ids() -> dict[bytes, bytes]:
+    """Every object id reachable from every ref, with a path where one is known.
+
+    ``git rev-list --objects`` has no NUL-separated form, so its output is read
+    line by line — and that is safe for **this** purpose only, because an
+    object id always begins a line and is validated as hex before use. A path
+    containing a newline can produce a junk line, which is discarded, and can
+    make a *label* wrong. It cannot make an object be missed, and the content
+    scan below never uses the path to fetch anything.
+    """
+    found: dict[bytes, bytes] = {}
+    for line in _git("rev-list", "--objects", "--all").splitlines():
+        oid, _, path = line.partition(b" ")
+        if _OID.match(oid):
+            found.setdefault(oid, path)
+    return found
+
+
+def _all_object_ids() -> dict[bytes, bytes]:
+    """Every object in the store, reachable or not, with its type.
+
+    Unreachable objects are included deliberately. They are not published by a
+    normal push, but they are present in a local clone and in any archive of
+    the directory, and a repository being prepared for publication should be
+    able to say what is in its store rather than only what its refs point at.
+    """
+    listing = _git(
+        "cat-file", "--batch-all-objects", "--batch-check=%(objectname) %(objecttype)"
+    )
+    found: dict[bytes, bytes] = {}
+    for line in listing.splitlines():
+        parts = line.split()
+        if len(parts) == 2 and _OID.match(parts[0]):
+            found[parts[0]] = parts[1]
+    return found
+
+
+def _batch_read(oids: list[bytes]):
+    """Yield ``(oid, content)`` for each blob, through one ``git cat-file``.
+
+    One process for the whole history rather than one per object: a repository
+    with a few thousand blobs is otherwise a few thousand process spawns.
+    """
+    process = subprocess.Popen(
+        ["git", "cat-file", "--batch"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+    )
+    assert process.stdin is not None and process.stdout is not None
+    try:
+        for oid in oids:
+            process.stdin.write(oid + b"\n")
+            process.stdin.flush()
+            header = process.stdout.readline().split()
+            if len(header) != 3:
+                raise SystemExit(
+                    f"privacy guard: git cat-file could not read "
+                    f"{os.fsdecode(oid)}"
+                )
+            size = int(header[2])
+            content = bytearray()
+            while len(content) < size:
+                chunk = process.stdout.read(size - len(content))
+                if not chunk:
+                    raise SystemExit("privacy guard: git cat-file ended early")
+                content.extend(chunk)
+            process.stdout.read(1)  # the trailing newline git adds
+            yield oid, bytes(content)
+    finally:
+        process.stdin.close()
+        process.stdout.close()
+        process.wait()
+
+
+def scan_history(patterns) -> tuple[Inventory, list[Violation]]:
+    """Every blob in the object store, by content.
+
+    This is the mode that answers what the other two cannot. A recording
+    committed as ``payload.bin`` and removed before HEAD leaves no tracked
+    name and no working-tree file, so scanning names or the checkout finds
+    nothing — while the blob is still reachable from the commit that added it
+    and is published with the repository.
+    """
+    violations: list[Violation] = []
+    reachable = _reachable_object_ids()
+    everything = _all_object_ids()
+
+    blob_ids = [oid for oid, kind in everything.items() if kind == b"blob"]
+    reachable_blobs = [oid for oid in blob_ids if oid in reachable]
+
+    # Historical paths come from git log's NUL-separated form, so a path with a
+    # newline in it is one path here and not two.
+    for path in _split_nul(
+        _git(
+            "log", "--all", "--pretty=format:", "--name-only", "-z",
+            "--diff-filter=A",
+        )
+    ):
+        reason = check_path(path)
+        if reason is not None:
+            violations.append(Violation(_show(path), reason))
+
+    scanned = 0
+    for oid, body in _batch_read(blob_ids):
+        scanned += 1
+        path = reachable.get(oid, b"")
+        label = f"{os.fsdecode(oid)[:12]} ({_show(path) if path else 'no path'})"
+        reason = check_content(path, len(body), body[:8192], body)
+        if reason is None:
+            reason = check_local_patterns(path, body, patterns)
+        if reason is not None:
+            violations.append(Violation(label, reason))
+
+    inventory = Inventory(
+        objects=len(everything),
+        blobs=len(blob_ids),
+        reachable_blobs=len(reachable_blobs),
+        unreachable_blobs=len(blob_ids) - len(reachable_blobs),
+        scanned=scanned,
+    )
+    return inventory, violations
+
+
+# --------------------------------------------------------------------------
+# entry point
+# --------------------------------------------------------------------------
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="scripts/pre-commit",
+        description="Refuse real device data into this repository.",
+    )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--all", action="store_true", help="scan every tracked file (CI, audits)"
+    )
+    group.add_argument(
+        "--history",
+        action="store_true",
+        help="scan every blob reachable from every ref, by content",
+    )
+    args = parser.parse_args(argv)
+
+    git_dir = os.fsdecode(_git("rev-parse", "--git-dir")).strip()
+    patterns = load_local_patterns(git_dir)
+
+    if args.history:
+        inventory, violations = scan_history(patterns)
+        summary = (
+            f"privacy guard: {inventory.scanned} blob(s) scanned by content, "
+            f"nothing flagged.\n"
+            f"  object store: {inventory.objects} object(s), "
+            f"{inventory.blobs} blob(s)\n"
+            f"  of those blobs: {inventory.reachable_blobs} reachable from a "
+            f"ref, {inventory.unreachable_blobs} not\n"
+        )
+        if inventory.unreachable_blobs:
+            summary += (
+                "  Unreachable blobs are not pushed, but they are in this "
+                "clone. A repository\n  being prepared for publication should "
+                "have none it cannot account for.\n"
+            )
+    else:
+        if args.all:
+            paths = _split_nul(_git("ls-files", "-z"))
+            mode = "all"
+        else:
+            paths = _split_nul(
+                _git("diff", "--cached", "--name-only", "--diff-filter=ACM", "-z")
+            )
+            mode = "staged"
+        if not paths:
+            return 0
+        scanned, violations = scan_paths(paths, mode, patterns)
+        summary = (
+            f"privacy guard: {scanned} {'tracked' if args.all else 'staged'} "
+            f"file(s) scanned, nothing flagged.\n"
+        )
+
+    if violations:
+        red, reset = ("\033[31m", "\033[0m") if sys.stderr.isatty() else ("", "")
+        print(f"{red}privacy guard: refusing.{reset}", file=sys.stderr)
+        print(file=sys.stderr)
+        for violation in violations:
+            print(f"  - {violation.where}", file=sys.stderr)
+            print(f"      {violation.why}", file=sys.stderr)
+        print(
+            "\nThis repository must never contain real health data or the device "
+            "serial.\nTest fixtures are generated at runtime and are not "
+            "committed.\n\nIf you are certain a flagged file is safe, you can "
+            "bypass the hook with\n  git commit --no-verify\nbut do so only "
+            "after looking at the file, not to make the message go away.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if args.all or args.history:
+        sys.stdout.write(summary)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

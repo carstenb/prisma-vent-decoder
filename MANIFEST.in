@@ -1,0 +1,36 @@
+# What goes into the source distribution.
+#
+# The policy is **the complete tests directory or nothing**, and it is the
+# complete directory. setuptools' default sdist picks up `tests/test_*.py` by
+# a filename heuristic and left out `tests/synthetic.py`, which every one of
+# those files imports — so an unpacked sdist collected ten errors reading
+#
+#     ModuleNotFoundError: No module named 'synthetic'
+#
+# A half-shipped test suite is worse than none: it looks runnable, fails for a
+# reason that has nothing to do with the code, and teaches a packager to stop
+# running it. `graft tests` ships the fixture builder and anything added
+# beside it later, so the same omission cannot recur by someone adding a
+# helper with a name the heuristic does not like.
+#
+# Shipping them at all is deliberate: the fixtures are generated at runtime and
+# no device data exists in this repository, so the tests carry nothing private
+# and let a downstream packager verify the build they are about to install.
+graft tests
+graft docs
+
+# `graft scripts`, not `include scripts/pre-commit`. Naming one file is how
+# this went wrong twice: the sdist first shipped tests/test_*.py without
+# tests/synthetic.py that every one of them imports, and then shipped
+# tests/test_release_history.py without the script it tests. Both times the
+# suite looked runnable and failed for a reason unrelated to the code, which
+# is how a packager learns to stop running it. Enumerate the directory, so
+# adding a file cannot repeat it.
+graft scripts
+
+include LICENSE
+include CHANGELOG.md CONTRIBUTING.md SECURITY.md
+
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude .DS_Store

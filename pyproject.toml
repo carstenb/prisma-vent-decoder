@@ -1,0 +1,92 @@
+[build-system]
+requires = ["setuptools>=77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prisma-vent-decoder"
+version = "0.1.0"
+description = "Unofficial decoder for personal prisma VENT50 SD-card data"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Carsten Bokemeyer" }]
+keywords = ["prisma", "ventilator", "edf", "health-data"]
+
+# Only what is actually true today: no operating systems beyond those CI runs
+# the suite on, and no claim of general device compatibility. Windows is
+# deliberately absent — nothing here has ever run there.
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+
+# The decoder itself has no runtime dependencies. This is deliberate: it keeps
+# this package extractable and independently publishable.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/carstenb/prisma-vent-decoder"
+Repository = "https://github.com/carstenb/prisma-vent-decoder"
+Issues = "https://github.com/carstenb/prisma-vent-decoder/issues"
+Changelog = "https://github.com/carstenb/prisma-vent-decoder/blob/main/CHANGELOG.md"
+# The two documents a consumer needs before trusting a number out of this
+# package: what the exported format promises, and where every threshold that
+# can reject a value comes from.
+Documentation = "https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/export-schema-v1.md"
+Thresholds = "https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/thresholds.md"
+
+[project.scripts]
+prisma-vent = "prisma_vent.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+# 100 rather than the default 88. The default would have reported 86 lines,
+# almost all of them prose in comments and error messages that say what they
+# need to say; rewrapping them to satisfy a number would have been churn
+# through carefully worded text. 100 is a limit this tree already keeps to
+# within four lines, so it enforces something real instead of announcing an
+# aspiration.
+line-length = 100
+
+[tool.ruff.lint]
+# Defect rules, not style rules. `E`/`F` are pycodestyle errors and pyflakes;
+# `B` is bugbear, which is where the value turned out to be — it found a loop
+# in the suite that did nothing and a test whose `zip` silently checked fewer
+# signals than it claimed to.
+#
+# **`DTZ` is deliberately absent.** It would report 210 findings here, every
+# one of them a naive `datetime`, because this decoder handles device local
+# time and `docs/export-schema-v1.md` states that these times carry no zone
+# and must not be given one. Enabling it would mean either 210 suppressions or
+# attaching a zone the device never recorded. `I` (import sorting), `UP` and
+# `SIM` are absent for the smaller reason: they rewrite working code to a
+# house style this project has not adopted.
+#
+# The version is deliberately unpinned. `.github/dependabot.yml` covers only
+# actions, on the stated grounds that development tools reach no user, so a pin
+# here would be one nothing updates. Naming the rule families explicitly is
+# what bounds the risk: a new ruff release cannot switch a whole family on,
+# and a new rule inside `E`, `F` or `B` reporting something is the tool doing
+# its job.
+select = ["E", "F", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# src is put on the path directly rather than relying on the editable install.
+# The suite should test the working tree, not whatever happens to be installed,
+# and on this machine macOS marks pip's __editable__*.pth as hidden, which
+# CPython's site module then skips - a failure that looks like a missing
+# package. tests/ is on the path so the runtime fixture builder is importable.
+pythonpath = ["src", "tests"]

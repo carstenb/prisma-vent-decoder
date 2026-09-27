@@ -1,0 +1,12 @@
+.venv*/
+__pycache__/
+*.pyc
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.DS_Store
+.ruff_cache/
+
+# Internal working notes, deliberately not published.
+CLAUDE.md

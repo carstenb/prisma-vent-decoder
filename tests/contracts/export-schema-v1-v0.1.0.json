@@ -1,0 +1,1127 @@
+{
+  "_generated_from": {
+    "command": "PYTHONPATH=<tree>/src:<tree>/tests python3 tests/schema_contract.py OUT.json",
+    "release": "v0.1.0"
+  },
+  "forms": {
+    "events.jsonl[kind=alarm]": {
+      "/": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/id": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/kind": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/offset_from_archive_midnight": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/phase": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/session": {
+        "presence": "required",
+        "types": [
+          "null"
+        ]
+      }
+    },
+    "events.jsonl[kind=device_state]": {
+      "/": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/id": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/kind": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/offset_from_archive_midnight": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/session": {
+        "presence": "required",
+        "types": [
+          "null"
+        ]
+      },
+      "/status": {
+        "presence": "required",
+        "types": [
+          "boolean"
+        ]
+      }
+    },
+    "events.jsonl[kind=respiratory]": {
+      "/": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/device_local": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/id": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/kind": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/phase": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/seconds_from_session_start": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/session": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/strength": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      }
+    },
+    "manifest.json": {
+      "/": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/adapter": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/adapter/decoder_schema_version": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/adapter/dirty": {
+        "presence": "required",
+        "types": [
+          "null"
+        ]
+      },
+      "/adapter/git_commit": {
+        "presence": "required",
+        "types": [
+          "null"
+        ]
+      },
+      "/adapter/package_version": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/archive_name": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/archive_sha256": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/day_number": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/event_count": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/events": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/export_schema_version": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/files": {
+        "presence": "required",
+        "types": [
+          "array"
+        ]
+      },
+      "/files/*": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/session_count": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/signal_files": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/therapy_day": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/time_base": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/unrecognised_members": {
+        "presence": "required",
+        "types": [
+          "array"
+        ]
+      },
+      "/usage": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/usage_records": {
+        "presence": "required",
+        "types": [
+          "integer",
+          "null"
+        ]
+      }
+    },
+    "parameters.json[available=false]": {
+      "/": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/available": {
+        "presence": "required",
+        "types": [
+          "boolean"
+        ]
+      },
+      "/reason": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/scale_candidates": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/scales": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/value_domains": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      }
+    },
+    "parameters.json[available=true]": {
+      "/": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/available": {
+        "presence": "required",
+        "types": [
+          "boolean"
+        ]
+      },
+      "/config_version": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/map_version": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/scale_candidates": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/scale_candidates/*": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/scale_candidates/*/evidence": {
+        "presence": "required",
+        "types": [
+          "array"
+        ]
+      },
+      "/scale_candidates/*/evidence/*": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/scale_candidates/*/name": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/scale_candidates/*/parameter_id": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/scale_candidates/*/physical_delta": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/scale_candidates/*/raw_delta": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/scale_candidates/*/status": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/scale_candidates/*/unit": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/scales": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/scales/*": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/scales/*/evidence": {
+        "presence": "required",
+        "types": [
+          "array"
+        ]
+      },
+      "/scales/*/evidence/*": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/scales/*/name": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/scales/*/parameter_id": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/scales/*/physical_delta": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/scales/*/raw_delta": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/scales/*/status": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/scales/*/unit": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/snapshots": {
+        "presence": "required",
+        "types": [
+          "array"
+        ]
+      },
+      "/snapshots/*": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/snapshots/*/active_program_raw": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/snapshots/*/active_program_raw/id": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/snapshots/*/active_program_raw/name": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/snapshots/*/active_program_raw/position": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/snapshots/*/active_program_raw/program": {
+        "presence": "required",
+        "types": [
+          "null"
+        ]
+      },
+      "/snapshots/*/active_program_raw/value_raw": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/snapshots/*/device_parameters": {
+        "presence": "required",
+        "types": [
+          "array"
+        ]
+      },
+      "/snapshots/*/device_parameters/*": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/snapshots/*/device_parameters/*/id": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/snapshots/*/device_parameters/*/name": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/snapshots/*/device_parameters/*/position": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/snapshots/*/device_parameters/*/program": {
+        "presence": "required",
+        "types": [
+          "null"
+        ]
+      },
+      "/snapshots/*/device_parameters/*/value_raw": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/snapshots/*/notes": {
+        "presence": "required",
+        "types": [
+          "array"
+        ]
+      },
+      "/snapshots/*/notes/*": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/snapshots/*/offset_from_archive_midnight": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/snapshots/*/therapy_programs": {
+        "presence": "required",
+        "types": [
+          "array"
+        ]
+      },
+      "/snapshots/*/therapy_programs/*": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/snapshots/*/therapy_programs/*/parameters": {
+        "presence": "required",
+        "types": [
+          "array"
+        ]
+      },
+      "/snapshots/*/therapy_programs/*/parameters/*": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/snapshots/*/therapy_programs/*/parameters/*/id": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/snapshots/*/therapy_programs/*/parameters/*/name": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/snapshots/*/therapy_programs/*/parameters/*/position": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/snapshots/*/therapy_programs/*/parameters/*/program": {
+        "presence": "required",
+        "types": [
+          "null"
+        ]
+      },
+      "/snapshots/*/therapy_programs/*/parameters/*/value_raw": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/snapshots/*/therapy_programs/*/program": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/value_domains": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/value_domains/*": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/value_domains/*/evidence": {
+        "presence": "required",
+        "types": [
+          "array"
+        ]
+      },
+      "/value_domains/*/evidence/*": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/value_domains/*/kind": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/value_domains/*/name": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/value_domains/*/observed_labels": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/value_domains/*/observed_labels/*": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/value_domains/*/parameter_id": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      }
+    },
+    "sessions.jsonl": {
+      "/": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/accounted_seconds": {
+        "presence": "required",
+        "types": [
+          "number"
+        ]
+      },
+      "/channels": {
+        "presence": "required",
+        "types": [
+          "array"
+        ]
+      },
+      "/channels/*": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/channels/*/bits": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/channels/*/digital_max": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/channels/*/digital_min": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/channels/*/index": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/channels/*/label": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/channels/*/physical_max": {
+        "presence": "required",
+        "types": [
+          "number"
+        ]
+      },
+      "/channels/*/physical_min": {
+        "presence": "required",
+        "types": [
+          "number"
+        ]
+      },
+      "/channels/*/samples_per_record": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/channels/*/sampling_rate_hz": {
+        "presence": "required",
+        "types": [
+          "number"
+        ]
+      },
+      "/channels/*/unit": {
+        "presence": "required",
+        "types": [
+          "null"
+        ]
+      },
+      "/duration_discrepancy_seconds": {
+        "presence": "required",
+        "types": [
+          "number"
+        ]
+      },
+      "/duration_seconds": {
+        "presence": "required",
+        "types": [
+          "number"
+        ]
+      },
+      "/provenance": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/provenance/archive_name": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/provenance/archive_sha256": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/provenance/identity": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/provenance/member_name": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/provenance/session_number": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/record_count": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/record_duration_seconds": {
+        "presence": "required",
+        "types": [
+          "number"
+        ]
+      },
+      "/session": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/start_device_local": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/start_skew_seconds": {
+        "presence": "required",
+        "types": [
+          "number"
+        ]
+      },
+      "/stop_device_local": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/therapy_day": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      }
+    },
+    "signal-csv-header": {
+      "/0": {
+        "presence": "required",
+        "types": [
+          "sample_index"
+        ]
+      },
+      "/1": {
+        "presence": "required",
+        "types": [
+          "device_local_time"
+        ]
+      },
+      "/2": {
+        "presence": "required",
+        "types": [
+          "digital_value"
+        ]
+      },
+      "/3": {
+        "presence": "required",
+        "types": [
+          "physical_value"
+        ]
+      },
+      "/4": {
+        "presence": "required",
+        "types": [
+          "unit"
+        ]
+      }
+    },
+    "usage.jsonl": {
+      "/": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/duration_by_category": {
+        "presence": "required",
+        "types": [
+          "array"
+        ]
+      },
+      "/duration_by_category/*": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/duration_by_program": {
+        "presence": "required",
+        "types": [
+          "array"
+        ]
+      },
+      "/duration_by_program/*": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/duration_minutes": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/raw_timestamp": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/second_by_category": {
+        "presence": "required",
+        "types": [
+          "array"
+        ]
+      },
+      "/second_by_category/*": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/second_by_program": {
+        "presence": "required",
+        "types": [
+          "array"
+        ]
+      },
+      "/second_by_program/*": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/second_quantity": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/start_device_local": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/therapy_day": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      }
+    },
+    "validation-report.json": {
+      "/": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/sessions": {
+        "presence": "required",
+        "types": [
+          "array"
+        ]
+      },
+      "/sessions/*": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/sessions/*/checks": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/sessions/*/checks/breath rate": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/sessions/*/checks/breath rate/detail": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/sessions/*/checks/breath rate/ratio": {
+        "presence": "required",
+        "types": [
+          "null"
+        ]
+      },
+      "/sessions/*/checks/breath rate/status": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/sessions/*/checks/long-term record": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/sessions/*/checks/long-term record/detail": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/sessions/*/checks/long-term record/ratio": {
+        "presence": "required",
+        "types": [
+          "null"
+        ]
+      },
+      "/sessions/*/checks/long-term record/status": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/sessions/*/checks/plausibility": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/sessions/*/checks/plausibility/detail": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/sessions/*/checks/plausibility/ratio": {
+        "presence": "required",
+        "types": [
+          "null"
+        ]
+      },
+      "/sessions/*/checks/plausibility/status": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/sessions/*/checks/target volume": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/sessions/*/checks/target volume/detail": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/sessions/*/checks/target volume/ratio": {
+        "presence": "required",
+        "types": [
+          "null"
+        ]
+      },
+      "/sessions/*/checks/target volume/status": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/sessions/*/checks/volume": {
+        "presence": "required",
+        "types": [
+          "object"
+        ]
+      },
+      "/sessions/*/checks/volume/detail": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/sessions/*/checks/volume/ratio": {
+        "presence": "required",
+        "types": [
+          "null"
+        ]
+      },
+      "/sessions/*/checks/volume/status": {
+        "presence": "required",
+        "types": [
+          "string"
+        ]
+      },
+      "/sessions/*/duration_discrepancy_seconds": {
+        "presence": "required",
+        "types": [
+          "number"
+        ]
+      },
+      "/sessions/*/range_violations": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      },
+      "/sessions/*/session": {
+        "presence": "required",
+        "types": [
+          "integer"
+        ]
+      }
+    }
+  }
+}

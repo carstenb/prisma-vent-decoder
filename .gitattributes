@@ -1,0 +1,10 @@
+# Fix line endings explicitly, so no platform default and no filter can rewrite
+# content between the verified candidate and the staged blob. The migration
+# compares hashes on both sides; a silent normalisation would break that
+# comparison for a reason that has nothing to do with what the files contain.
+* text=auto eol=lf
+
+# Never touched by any filter.
+*.png binary
+*.jpg binary
+*.zip binary

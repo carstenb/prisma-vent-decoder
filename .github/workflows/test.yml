@@ -1,0 +1,387 @@
+name: tests
+
+# Six OS/Python combinations, because the support claim in pyproject.toml is
+# 3.11 to 3.13 on macOS and Linux and a claim nothing verifies is a guess.
+# Windows is deliberately absent: nothing here has ever run there, and the
+# classifiers must not say otherwise.
+
+on:
+  push:
+    branches: [main]
+    # Tags run the same jobs, so a release is cut from artefacts that passed
+    # the same checks as any other build rather than from a second, parallel
+    # packaging path that could drift from this one.
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  privacy:
+    # Runs first and on its own. If a recording ever reaches this repository,
+    # nothing else about the build matters.
+    name: privacy guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # The guard scans the working tree, but a leak in a *previous* commit
+          # is the case that cannot be walked back, so fetch the history too.
+          fetch-depth: 0
+
+      - name: Scan every tracked file
+        run: ./scripts/pre-commit --all
+
+      - name: Scan every blob in the history, by content
+        # This is the check the two name-based ones below could never be. A
+        # recording committed as `payload.bin` and removed before HEAD has no
+        # tracked name and no working-tree file, and is still published with
+        # the repository. This mode reads the bytes of every blob in the object
+        # store and reports an inventory of what is there.
+        run: ./scripts/pre-commit --history
+
+      - name: Refuse anything ever committed under data/
+        # Kept alongside the content scan rather than replaced by it: this one
+        # states the rule in the terms the rule is written in, and a failure
+        # here names the path rather than an object id.
+        run: |
+          found=$(git log --all --pretty=format: --name-only --diff-filter=A -z \
+                  | tr '\0' '\n' | sort -u | grep -E '^data/' || true)
+          if [ -n "$found" ]; then
+            echo "::error::files were committed under data/ at some point:"
+            echo "$found"
+            exit 1
+          fi
+          echo "no file has ever been committed under data/"
+
+      - name: Refuse device-shaped filenames anywhere in history
+        # A weaker check than the content scan above, kept because it fails
+        # with a name a person recognises. It is not relied on: renaming a
+        # recording defeats it, which is exactly why --history exists.
+        run: |
+          found=$(git log --all --pretty=format: --name-only --diff-filter=A -z \
+                  | tr '\0' '\n' | sort -u \
+                  | grep -Ei '\.(wmedf|tc|sdpvdat)$' || true)
+          if [ -n "$found" ]; then
+            echo "::error::device recordings appear in the history:"
+            echo "$found"
+            exit 1
+          fi
+          echo "no device recording appears in the history"
+
+  test:
+    name: python ${{ matrix.python }} on ${{ matrix.os }}
+    needs: privacy
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS is the platform this was developed on; Linux is what CI and
+        # most contributors have.
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e '.[dev]'
+
+      - name: The dependency set must stay consistent
+        run: python -m pip check
+
+      - name: Test
+        # The suite uses synthetic fixtures only; no device data exists here.
+        run: python -m pytest -q
+
+      - name: The documented commands must actually exist
+        # Guards against the README drifting from the program, which is the
+        # documentation failure a stranger notices first.
+        run: |
+          prisma-vent --version
+          prisma-vent --help
+          for cmd in copy-card decode inspect usage validate; do
+            prisma-vent "$cmd" --help > /dev/null
+            echo "ok: prisma-vent $cmd"
+          done
+
+      - name: A bare invocation is a usage error, not a silent success
+        run: |
+          set +e
+          prisma-vent > /dev/null 2>&1
+          status=$?
+          set -e
+          [ "$status" -eq 2 ] || { echo "expected exit 2, got $status"; exit 1; }
+
+  package:
+    name: build, unpack and test the distribution
+    needs: privacy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Build both artefacts
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          python -m twine check dist/*
+
+      - name: Scan the artefacts, not only the repository
+        # A wheel and sdist can carry files the working tree does not.
+        run: |
+          mkdir -p /tmp/unpacked
+          for archive in dist/*.whl; do unzip -o -q "$archive" -d /tmp/unpacked; done
+          for archive in dist/*.tar.gz; do tar -xzf "$archive" -C /tmp/unpacked; done
+          bad=$(find /tmp/unpacked \
+                -iname '*.wmedf' -o -iname '*.tc' -o -iname '*.sdpvdat' \
+                -o -iname '*.zip' -o -iname '*.proto')
+          if [ -n "$bad" ]; then
+            echo "::error::device-shaped files in the distribution:"
+            echo "$bad"
+            exit 1
+          fi
+          # Scan the matched *text*, not the filenames. `grep -rl` prints
+          # paths, so filtering its output for the reserved all-zero serial
+          # filtered filenames and let every synthetic fixture trip the check —
+          # a gate that fires on its own test data is one people learn to
+          # ignore. `-h -o` prints the matches themselves, which is what the
+          # exception is about.
+          if grep -rhoE '\bSN[0-9]{6,}\b' /tmp/unpacked | grep -qvE '^SN0+$'; then
+            echo "::error::a serial-shaped identifier is in the distribution"
+            exit 1
+          fi
+          echo "distribution carries no device data"
+
+      - name: The sdist must ship a test suite that runs
+        # The policy is the complete tests directory or nothing, and it is the
+        # complete directory. setuptools' default sdist shipped tests/test_*.py
+        # and left out tests/synthetic.py, which every one of them imports, so
+        # an unpacked sdist collected ten ModuleNotFoundError. A half-shipped
+        # suite looks runnable and fails for a reason unrelated to the code.
+        run: |
+          mkdir -p /tmp/sdist
+          tar -xzf dist/*.tar.gz -C /tmp/sdist
+          root=$(find /tmp/sdist -mindepth 1 -maxdepth 1 -type d | head -1)
+          test -f "$root/tests/synthetic.py" \
+            || { echo "::error::the sdist ships tests without their fixture builder"; exit 1; }
+          python -m venv /tmp/sdist-venv
+          /tmp/sdist-venv/bin/python -m pip install --quiet pytest
+          cd "$root" && /tmp/sdist-venv/bin/python -m pytest -q
+
+      - name: Install from the built wheel into a clean environment
+        run: |
+          python -m venv /tmp/fresh
+          /tmp/fresh/bin/python -m pip install --quiet dist/*.whl
+          /tmp/fresh/bin/python -m pip check
+          /tmp/fresh/bin/prisma-vent --version
+          /tmp/fresh/bin/prisma-vent --help > /dev/null
+          for cmd in copy-card decode inspect usage validate; do
+            /tmp/fresh/bin/prisma-vent "$cmd" --help > /dev/null
+            echo "ok: prisma-vent $cmd"
+          done
+
+      - name: The licence must reach the distribution
+        # license-files resolves relative to pyproject.toml, so the package
+        # needs its own copy; without it the wheel would ship none.
+        run: |
+          found=$(find /tmp/unpacked -name 'LICENSE*' | head -1)
+          [ -n "$found" ] || { echo "::error::no licence in the distribution"; exit 1; }
+          echo "licence present: $found"
+
+      - name: Exactly one wheel and one sdist
+        # The release job attaches what this job built. Naming the count here
+        # rather than globbing `dist/*` there means a stray artefact is caught
+        # beside the checks that would have had to pass for it, not later by
+        # whatever happens to match.
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        run: |
+          wheels=$(find dist -maxdepth 1 -name '*.whl' | wc -l | tr -d ' ')
+          sdists=$(find dist -maxdepth 1 -name '*.tar.gz' | wc -l | tr -d ' ')
+          [ "$wheels" = 1 ] && [ "$sdists" = 1 ] || {
+            echo "::error::expected one wheel and one sdist, found $wheels and $sdists"
+            exit 1
+          }
+
+      - name: Hand the checked artefacts to the release job
+        # Last step of the job on purpose: nothing is passed on until every
+        # check above has passed. Only on tags, so ordinary pull request and
+        # main runs do not leave distributable files lying around.
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: distribution
+          path: dist/
+          if-no-files-found: error
+
+  links:
+    name: markdown links resolve
+    needs: privacy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Every relative link must point at a file that exists
+        # The README is the package's long description on PyPI, where a
+        # relative link resolves against nothing. Absolute links are checked
+        # for shape here rather than followed, so the job needs no network.
+        run: python scripts/check-links.py
+
+  lint:
+    name: ruff
+    needs: privacy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install '.[dev]'
+
+      - name: Defect rules only
+        # Which rules and why is in pyproject.toml, beside the selection
+        # itself rather than here, so the reasoning cannot drift from what is
+        # enforced. One job rather than a step in the matrix: the answer does
+        # not vary by operating system or interpreter.
+        run: ruff check .
+
+  release:
+    name: draft a release from the checked artefacts
+    # Only on a version tag. Without this the job would run on every pull
+    # request and fail at its own tag gate — a red cross that means nothing is
+    # the surest way to teach people to stop reading a gate.
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    # Everything that could have rejected this build has to have passed. The
+    # artefacts come from `package`; this job builds nothing.
+    needs: [privacy, test, package, links, lint]
+    runs-on: ubuntu-latest
+    permissions:
+      # The only job with write access, and only because it creates the draft.
+      # The workflow's default above stays `contents: read`.
+      contents: write
+    concurrency:
+      # Two runs for one tag would race to create the same release, and the
+      # loser would find a half-finished draft made by the winner.
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # `git merge-base --is-ancestor` needs real history. The default
+          # shallow checkout does not fail on it — it answers wrongly, which
+          # is worse than failing.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: The tag, the version and the export contract must agree
+        run: python scripts/check-release-tag.py "$TAG"
+
+      - name: The tagged commit must be reachable from main
+        # Otherwise a release could be cut from a side branch that no review
+        # ever saw.
+        run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor "$TAG" origin/main || {
+            echo "::error::$TAG is not reachable from main"
+            exit 1
+          }
+
+      - name: No release may exist for this tag yet
+        # Fail closed. GitHub creates the release and uploads its assets in
+        # separate calls, so an interrupted run leaves a partial draft behind;
+        # continuing would either duplicate or quietly complete it. Only an
+        # unambiguous "not found" allows this to proceed — an auth or network
+        # failure must not read as "nothing is there", which would turn a
+        # check that could not run into a check that passed.
+        run: |
+          set +e
+          output=$(gh release view "$TAG" 2>&1)
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "::error::a release already exists for $TAG. Look at it, delete it deliberately, then re-run."
+            exit 1
+          fi
+          case "$output" in
+            *"release not found"*) echo "no release for $TAG yet" ;;
+            *)
+              echo "::error::could not determine whether $TAG has a release: $output"
+              exit 1
+              ;;
+          esac
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          name: distribution
+          path: dist
+
+      - name: Exactly one wheel and one sdist arrived
+        run: |
+          wheels=$(find dist -maxdepth 1 -name '*.whl' | wc -l | tr -d ' ')
+          sdists=$(find dist -maxdepth 1 -name '*.tar.gz' | wc -l | tr -d ' ')
+          [ "$wheels" = 1 ] && [ "$sdists" = 1 ] || {
+            echo "::error::expected one wheel and one sdist, found $wheels and $sdists"
+            exit 1
+          }
+
+      - name: Write the checksum block
+        # README.md promises every release lists the SHA-256 of both
+        # artefacts in its notes, and until now nothing produced them. The
+        # notes are where the promise points, so the sums go there rather than
+        # into a third asset that would contradict the count checked above.
+        run: |
+          {
+            echo "## Artefact checksums"
+            echo
+            echo '```'
+            (cd dist && sha256sum *.whl *.tar.gz)
+            echo '```'
+            echo
+            echo "_Draft. The rest of these notes is written by hand before publishing._"
+          } > notes.md
+          cat notes.md
+
+      - name: Create the draft
+        # A draft, never a published release. Publishing stays a human step so
+        # that someone reads the notes first; an automatic changelog would
+        # copy commit subjects verbatim into a published note, which is the
+        # failure this project has already had.
+        run: |
+          gh release create "$TAG" \
+            --draft \
+            --verify-tag \
+            --title "$TAG" \
+            --notes-file notes.md \
+            dist/*.whl dist/*.tar.gz
+          echo "draft created for $TAG — review it, then publish by hand"
