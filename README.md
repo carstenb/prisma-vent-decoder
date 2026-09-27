@@ -410,78 +410,61 @@ impossible while another succeeds.
 | volume | `reported`, `not comparable` | the expected relationship does not hold, and the explanations cannot be separated |
 | target volume | `reported`, `not comparable` | what separates a delivered volume from its target is what the device is regulating, so bounding it would be a clinical claim |
 
-**`reported` is not `passed`.** It means the check ran and produced a figure
-this decoder asserts nothing about. Reading it as success would credit the
-decode with surviving a test that was never applied to it.
-
-**A check that could not run is not a check that passed** either. A session
-with nothing comparable is counted and named rather than folded into a clean
-summary line.
+**`reported` is not `passed`**: the check ran and produced a figure this
+decoder asserts nothing about. **A check that could not run is not a check that
+passed** either — a session with nothing comparable is counted and named rather
+than folded into a clean summary line.
 
 ### Session duration against the device's own record
 
-`validate` compares each session's duration against the entry the device
-banked for it in its long-term record. Sessions lasting under a minute leave no
-entry at all, since the device stores whole minutes, and those are reported as
-`not comparable` — which is not `passed`.
+Each session's duration is compared against the entry the device banked for it.
+A one-minute tolerance is allowed on matching a record to a session, derived
+from the format rather than measured: the record stores whole minutes, so its
+idea of when a session began can differ by up to one storage quantum. Sessions
+under a minute leave no entry at all and are `not comparable`. Where more than
+one record falls inside the window, the session is `not comparable` too —
+**ambiguity is refused, never resolved**, and in particular never resolved by
+whichever record was written last.
 
-A tolerance of one minute is allowed on matching a record to its session. It
-is derived from the format rather than from measurement: the long-term record
-stores whole minutes, so its idea of when a session began can differ from the
-archive's by up to one storage quantum. Where more than one record falls inside
-the window — including several sharing one instant — the session is reported as
-not comparable. Ambiguity is refused, never resolved, and in particular never
-resolved by whichever record happened to be written last.
-
-**Be clear about what this proves, and what it does not.** A session has two
-durations — the span between the start and stop times in its XML, and the span
-its signal file's records account for. They differ, and the device banks the
-*XML* span, truncated.
-
-So the banked figure and the session XML come from the same side of the device,
-and their agreement does **not** prove the signal decoding. What it proves is
-that session boundaries are read correctly — a shifted or misattributed time
-base puts the two out of step. **That is weaker than two unrelated subsystems
-agreeing**, and it is worth knowing which of the two you have.
+**What this proves is narrower than it looks.** A session has two durations:
+the span between its XML start and stop times, and the span its signal records
+account for. The device banks the *XML* span, truncated — so both figures come
+from the same side of the device, and their agreement does **not** prove the
+signal decoding. It proves that session boundaries are read correctly, since a
+shifted time base puts the two out of step. That is weaker than two unrelated
+subsystems agreeing, and it is worth knowing which of the two you have.
 
 ### Plausibility: the one external check
 
-Most of what `validate` reports is self-referential. Comparing a sample against
-the range the same header declares catches a misaligned record, but not a
-misread header: if the scale factors or the channel order were wrong, the file
-would agree with itself perfectly and every value would look reasonable. That
-is precisely the silent misparse this project is most afraid of.
-
-So one check compares decoded values against figures the manufacturer
-publishes, which the file cannot influence. It reports `passed`, `failed`, or
-`not comparable` when no channel in the file has a published bound — and `not
-comparable` is not `passed`.
+Every other check is self-referential. Comparing a sample against the range its
+own header declares catches a misaligned record but not a misread header: with
+the wrong scale factors or channel order, the file agrees with itself perfectly
+and every value looks reasonable. **That silent misparse is what this project
+fears most**, so one check compares decoded values against figures the
+manufacturer publishes, which the file cannot influence.
 
 **Most channels have no bound**, and that is the honest position rather than a
-gap. The manual gives maximum air flow as *above* 220 l/min — a guaranteed
-minimum capability, which cannot be turned into a ceiling, and multiplying it
-by a time gives another lower bound rather than an upper one. A ceiling for
-breath rate or pulse rate would need a cited source and there is none. Bounds
-that rested on either are absent rather than reworded, and
+gap. Maximum air flow is published as *above* 220 l/min — a guaranteed minimum
+capability, which cannot become a ceiling, and multiplying it by a time gives
+another lower bound rather than an upper one. A ceiling for breath or pulse
+rate would need a cited source and there is none.
 [`docs/thresholds.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/thresholds.md)
-lists each of them with its reason.
+lists every number considered and not applied, with its reason.
 
-What is applied is short and one-sided: a published maximum pressure under fault,
-the published settable maxima for the three channels that report settings, and
-0–100 % on channels the file itself declares as percentages. **The bounds are
-deliberately loose.** They are not there to judge a therapy. They are there to
-catch a decode that is wrong by a factor of hundreds — a swapped byte order
-turns an ordinary breath into something two orders of magnitude larger — and a
-bound tightened until it hugs observed data would start reporting the patient
-instead of the parser.
+What is applied is short and one-sided: a published maximum pressure under
+fault, the published settable maxima for the three channels that report
+settings, and 0–100 % where the file itself declares a percentage. **The bounds
+are deliberately loose.** They are not there to judge a therapy but to catch a
+decode wrong by a factor of hundreds — a swapped byte order turns an ordinary
+breath into something two orders of magnitude larger — and a bound tightened
+until it hugs observed data would report the patient instead of the parser.
 
-Two safeguards are built in against it. Each bound records whether it came
-from a settable range, a hardware capability or the arithmetic of its own
-unit, and **only channels that report settings may be bounded by a settable
-range** — a limit on what may be dialled in says nothing about what may be
-measured. And when a bound fires while being narrower than the range the
-file's own header declares, the report says so: that combination points at the
-bound before it points at the decoder.
+Two safeguards against exactly that. Each bound records whether it came from a
+settable range, a hardware capability or the arithmetic of its own unit, and
+**only channels that report settings may be bounded by a settable range** — a
+limit on what may be dialled in says nothing about what may be measured. And
+when a bound fires while being narrower than the range the file's own header
+declares, the report says so: that points at the bound before the decoder.
 
 ## Development
 
@@ -544,11 +527,11 @@ publishing stay manual.
 
 ### `decode`: replacing an existing export
 
-`decode` writes each export into a temporary directory and moves it into place
-only once the manifest is written, so a run that fails leaves nothing behind
-and never mixes two exports. **An existing export is never overwritten
-silently**, and `--overwrite` replaces exactly one thing: a complete export of
-*this same archive*, proved by a matching `archive_sha256`.
+Each export is written into a temporary directory and moved into place only
+once the manifest is written, so a failed run leaves nothing behind and never
+mixes two exports. **An existing export is never overwritten silently**, and
+`--overwrite` replaces exactly one thing: a complete export of *this same
+archive*, proved by a matching `archive_sha256`.
 
 | destination | default | `--overwrite` |
 |---|---|---|
@@ -556,87 +539,73 @@ silently**, and `--overwrite` replaces exactly one thing: a complete export of
 | complete export of a different archive | refused | refused |
 | incomplete, damaged, or not an export at all | refused | refused |
 
-"Complete" is checked, not assumed: the manifest must be a regular file of
-valid JSON declaring a schema version this build writes, naming this archive,
-carrying a syntactically valid digest that matches the source bytes, and every
-required file must be present as a regular file — a symlink does not count. **A
-manifest carrying a matching hash is not on its own a licence to delete a
-directory.**
+"Complete" is checked, not assumed: a regular-file manifest of valid JSON,
+declaring a schema version this build writes, naming this archive, carrying a
+digest that matches the source bytes, with every required file present as a
+regular file — a symlink does not count. **A matching hash is not on its own a
+licence to delete a directory.**
 
-Nor is the presence of the right files. The manifest lists every path the
-export wrote, and the check is an **exact correspondence**: every declared path
-must exist as a regular file, every regular file present must be declared, and
-every directory must be one the declared paths imply. A subset check would not
-do — a manifest could declare a path it never wrote, and a file later dropped
-there would then pass as the exporter's own.
-
-Declared paths must be safe and canonical, and `manifest.json` must list
-itself; the exact rules are in
+Nor is the presence of the right files. The manifest lists every path the export
+wrote, and the correspondence must be **exact** in both directions: a subset
+check would let a file dropped beside an export pass as the exporter's own. So
+**anything found beside an export stops the replacement** — a note, a
+spreadsheet, an unfamiliar subdirectory, even an empty one. The directory is
+left exactly as it is, and the message names the paths but never their
+contents. Path rules are in
 [`docs/export-schema-v1.md`](https://github.com/carstenb/prisma-vent-decoder/blob/main/docs/export-schema-v1.md).
 
-So **anything found beside an export stops the replacement** — a note, a
-spreadsheet, an unfamiliar subdirectory, even an empty one. Replacing it would
-delete those, so the directory is left exactly as it is and the message names
-the paths, never their contents.
+A manifest **lacking** the list falls back to a strict allowlist of the required
+files. That fallback cannot tell a hand-made file matching those names from one
+this tool wrote, which is why the declared list is the better route; **only a
+missing `files` field takes it**, a malformed one is refused outright.
 
-A manifest **lacking** the list falls back to a strict allowlist of the
-required files, `usage.jsonl` and `session_NNNN/signal_NN_*.csv`. That fallback
-cannot tell a hand-made file matching those names from one this tool wrote,
-which is why the declared list is the better route. **Only a missing `files`
-field takes the fallback**; a malformed one is refused outright.
-
-The permissive reading was rejected deliberately. Archive filenames repeat
-across cards — the day counter runs with the device, not the card — so
-`0123_2020-01-01.zip` from two cards is two different recordings under one
-name. A flag meaning "redo this export" would otherwise destroy an export of
+**Why not a permissive "redo this export" flag.** Archive filenames repeat
+across cards — the day counter runs with the device, not the card — so one name
+can mean two different recordings, and such a flag would destroy an export of
 something else. Moving the old directory aside is one command and cannot go
 wrong by accident.
 
-If replacing an export fails **and** the previous one cannot be put back, the
-run stops with the surviving copy's path in the message and deletes nothing.
-If the swap succeeds but the old export cannot then be removed, that is
-reported too, with exit code `3`: the new export is complete and in place, and
-a second copy of health data is still on disk at the named path. Nothing tries
-to delete it again.
+Two failure modes are reported rather than papered over. If a replacement fails
+**and** the previous export cannot be put back, the run stops with the surviving
+copy's path and deletes nothing. If the swap succeeds but the old export cannot
+be removed, exit code `3` says so: the new export is complete and in place, and
+a second copy of health data is still on disk at the named path.
 
 `--signals` **fails on a channel it cannot resolve** rather than skipping it,
-with exit code `2`: skipping would produce a successful export missing exactly
+with exit code `2` — skipping would produce a successful export missing exactly
 the channel that was asked for. Naming a channel twice, or once by label and
 once by index, writes one file.
 
 ### `copy-card` guarantees
 
-`copy-card` never picks a volume for you — the source is always named
-explicitly. It does not descend into the operating system's own directories —
-`.Trashes`, `.Spotlight-V100`, `.fseventsd` — which are listed as ignored in
-the manifest; copying a card must not carry off files somebody deleted. It
-copies every other regular file, familiar or not, refuses symlinks and other
-non-regular objects, verifies each file by size and SHA-256 before counting it
-as copied, and never overwrites: a file already present with different content
-stops the run.
+The source is always named explicitly — it never picks a volume for you. It
+skips the operating system's own directories (`.Trashes`, `.Spotlight-V100`,
+`.fseventsd`), which the manifest lists as ignored, because copying a card must
+not carry off files somebody deleted. Every other regular file is copied,
+familiar or not; symlinks and other non-regular objects are refused; each file
+is verified by size and SHA-256 before counting as copied; and **nothing is
+overwritten** — a file already present with different content stops the run.
 
-**Nothing is written outside the destination you name.** That is not a matter
-of computing careful paths and trusting them. Once the destination is resolved
-it is opened as a directory *handle*, and every subsequent directory and file
-is created and opened relative to that handle with no-follow semantics. A
-symlink anywhere below the destination is refused rather than traversed, and a
-path swapped between planning and writing cannot redirect anything, because no
-later operation goes through a path string at all.
+**Nothing is written outside the destination you name**, and not by computing
+careful paths and trusting them. The destination is opened once as a directory
+*handle*, and every directory and file below it is created and opened relative
+to that handle with no-follow semantics. A symlink below the destination is
+refused rather than traversed, and a path swapped between planning and writing
+cannot redirect anything, because **no later operation goes through a path
+string at all**.
 
-A destination is treated as resumable **only** if it carries a manifest this
-tool wrote: a regular, non-symlink file of valid JSON, declaring the expected
-schema version, naming the same source, and stating whether its copy finished.
-Every one of those is checked. Accepting a directory because it contains
-something *named* `copy-manifest.json` would, combined with path-based writes,
-be enough to place health data outside the chosen destination and to change
-permissions on a directory elsewhere.
+A destination is resumable **only** if it carries a manifest this tool wrote,
+and every part of that is checked: a regular non-symlink file, valid JSON, the
+expected schema version, the same source named, and whether the copy finished.
+Accepting a directory merely because it contains something *named*
+`copy-manifest.json` would — combined with path-based writes — be enough to
+place health data outside the chosen destination and change permissions on a
+directory elsewhere.
 
 The destination is created owner-only and **holds personal health data** — keep
-it outside any repository.
-
-The source is opened read-only and is never written to. That is not the same
-as the volume being mounted read-only, which no program can guarantee, and
-this one does not claim it.
+it outside any repository. The source is opened read-only and never written to.
+That is not the same as the volume being mounted read-only, which no program
+can guarantee, and this one does not claim it.
 
 ## Reporting problems
 
