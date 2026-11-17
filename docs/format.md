@@ -48,6 +48,15 @@ WM30640/
 `NNNN` is a therapy-day counter running since the device entered service, not
 since the card was inserted, and it continues across card changes.
 
+**It counts records, not calendar days — do not key on it as though it were a
+date.** Two consecutive counter values can carry the *same* `YYYY-MM-DD`, in
+the archive tree and in `trendcurve/` alike, when the device restarts shortly
+after the noon rollover. The device's own session log names the new index
+against the unchanged date, and the long-term record accounts that date
+**once**: the two files are parts of one therapy day, not two. A consumer that
+assumes one counter value per date, or derives a date from the counter, is
+wrong from the first such restart onward. Key on the whole file name.
+
 **The trees cover different spans.** Trend curves reach further back than the
 daily archives; battery files further still. When a fresh card is inserted the
 device writes out its internal buffer, which the manufacturer documents as
@@ -116,6 +125,26 @@ authority. And the declared physical range is nominal here too, more strongly
 than in the signal files: some channels are flags packed into 16 bits and
 declare an 8-bit range they then exceed, so a reader that validates against the
 header would reject them.
+
+### The header's start date is not authoritative on its own
+
+A session's `.wmedf` header carries its own start date, and that date can be
+**wrong** — not drifted, wrong: one session has been seen carrying a date
+months away from the archive that contains it, following a clean restart.
+
+It is not a lost clock. The application's log clock is correct in the very line
+that names that file, and the other session in the same archive is correct.
+Five things agree against the header: the archive's own name, both day-level
+XMLs, the session log and the day's trend curve.
+
+**Why this matters for a reader.** The header date determines which midnight a
+session's start offset is resolved against, so a wrong one moves the session by
+however far the date is off. This decoder does not silently carry that through:
+the therapy day a session resolves into must equal the day the archive is named
+for, and an archive holding such a session is **refused** with both dates in
+the message. The practical consequence is that one faulty header makes its whole
+archive undecodable, including the sound sessions beside it — loud failure in
+preference to a plausible wrong date.
 
 ### Declared ranges are nominal, not clamps
 
@@ -285,6 +314,28 @@ anyone with a card, and its figures are not published here.
 more are near-constant with the high bit set, which looks like packed fields
 rather than integers. The decoder hands them back untouched.
 
+**The header's `Offset` is an index into that same two-minute grid**, counted
+from the therapy day's noon start. So
+
+    noon + Offset × 2 min
+
+is the two-minute slot the day's first session begins in — not the instant it
+begins. The decoder carries the field verbatim and derives nothing from it.
+
+The way to check this on a card of your own, which is the part worth having:
+for a day carrying both a trend curve and a day archive, compare that boundary
+against the first session's own start as read from the first `.wmedf` header.
+**The residual must fall in `[0, 2)` minutes** — the session begins somewhere
+inside the slot that contains it. That window is structural rather than a
+fitted tolerance, which is what separates an index into a two-minute grid from
+an offset in some other unit: a wrong unit does not merely shift the residual,
+it puts it outside a bound that was never chosen to fit anything.
+
+Established by running exactly that comparison over every day of one card that
+carries both trees. Its figures are not published here. One day fell outside
+the window, and the cause was a faulty header date rather than a counter-example
+— see *The header's start date is not authoritative on its own* above.
+
 ---
 
 ## What remains unknown
@@ -308,9 +359,12 @@ rather than integers. The decoder hands them back untouched.
   a file need not be the end of therapy; and the device holds at most fourteen
   days internally, writing its buffer out when a card is inserted.
 
-  A settings change is a candidate explanation for some of them — the device
-  runs while a setting is being changed — and it is **testable rather than
-  assumed**: `parameter.xml` carries timestamped single-entry change records
+  Two candidate explanations, neither established. A **restart** is one: the
+  counter note under *Card layout* records a restart shortly after the noon
+  rollover producing a second archive for one date, so restarts demonstrably
+  happen and demonstrably leave traces. A **settings change** is the other —
+  the device runs while a setting is being changed — and that one is
+  **testable rather than assumed**: `parameter.xml` carries timestamped single-entry change records
   alongside its full snapshots, so a short session's start can be held against
   them. Doing that needs the reference-midnight caution under *Time*: those
   offsets count from the archive's own midnight, and a session's start and end

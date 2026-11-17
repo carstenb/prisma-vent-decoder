@@ -99,9 +99,14 @@ class TrendCurve:
     day_number: int
     device_type: str
     device_id: str
-    #: The header's ``Offset`` field, kept verbatim. Its meaning is unknown: it
-    #: varies per file and matches neither the header length nor the record
-    #: count, so it is carried rather than interpreted.
+    #: The header's ``Offset`` field, kept verbatim. It is an **index into the
+    #: two-minute record grid**, counted from the therapy day's noon start, so
+    #: ``noon + Offset x 2 min`` is the slot the day's first session begins in.
+    #: Carried rather than resolved: turning it into an instant needs the
+    #: therapy day's noon, and a caller that has the day archive can hold the
+    #: derived boundary against the first session's own start instead. See
+    #: ``docs/format.md`` for the check and the structural ``[0, 2)`` minute
+    #: window it has to fall in.
     offset_field: str
     #: The device serial from the header. Identifying — never print it.
     serial: str

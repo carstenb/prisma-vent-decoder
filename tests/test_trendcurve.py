@@ -29,7 +29,12 @@ def test_reads_the_header(tmp_path):
 
 
 def test_offset_field_is_carried_not_interpreted(tmp_path):
-    """Its meaning is unknown, so it is kept verbatim rather than parsed."""
+    """Known to be a two-minute grid index, and still carried verbatim.
+
+    Resolving it needs the therapy day's noon, which this reader does not
+    impose on a caller. The decoder never turns it into an instant, so the
+    string is what comes back.
+    """
     curve = read_trend_curve(build_trend_curve(tmp_path, day=DAY))
     assert curve.offset_field == "0105"
 
