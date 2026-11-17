@@ -299,3 +299,19 @@ rather than integers. The decoder hands them back untouched.
   lifetime counter, and the histogram blocks.
 - The `statistic.proto` record timestamp's exact semantics beyond matching a
   session start.
+- **What starts and ends a session.** A session is a signal file paired with an
+  event file, and the device decides where one stops and the next begins —
+  nothing establishes on what basis. Short recordings do occur, including
+  before a night's main session and during the day, and no cause for them has
+  been established. Two published facts bound the question without answering
+  it: softSTOP leaves a low-pressure tail after the ramp expires, so the end of
+  a file need not be the end of therapy; and the device holds at most fourteen
+  days internally, writing its buffer out when a card is inserted.
+
+  A settings change is a candidate explanation for some of them — the device
+  runs while a setting is being changed — and it is **testable rather than
+  assumed**: `parameter.xml` carries timestamped single-entry change records
+  alongside its full snapshots, so a short session's start can be held against
+  them. Doing that needs the reference-midnight caution under *Time*: those
+  offsets count from the archive's own midnight, and a session's start and end
+  may each count from a different one.
